@@ -62,8 +62,8 @@ export const registerValidation = [
 
   body('phone')
     .optional()
-    .matches(/^\+?[1-9]\d{1,14}$/)
-    .withMessage('Phone number must be in valid international format'),
+    .isLength({ min: 1, max: 20 })
+    .withMessage('Phone number must be between 1 and 20 characters'),
 ];
 
 export const loginValidation = [

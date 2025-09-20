@@ -41,7 +41,12 @@ const limiter = rateLimit({
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.APP_URL || 'http://localhost:3001',
+  origin: [
+    process.env.APP_URL || 'http://localhost:3001',
+    'http://localhost:3000',
+    'https://localhost:3000',
+    process.env.FRONTEND_URL || 'http://localhost:3000'
+  ],
   credentials: true
 }));
 app.use(limiter);

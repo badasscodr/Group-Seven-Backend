@@ -8,17 +8,16 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
-import { errorHandler } from './middleware/errorHandler';
-import { notFoundHandler } from './middleware/notFoundHandler';
-import authRoutes from './routes/auth';
-import userRoutes from './routes/users';
-import adminRoutes from './routes/admin';
-import serviceRequestRoutes from './routes/serviceRequests';
-// import jobRoutes from './routes/jobs';
-// import documentRoutes from './routes/documents';
-import messageRoutes from './routes/messages';
-import notificationRoutes from './routes/notifications';
-import employeeRoutes from './routes/employee';
+import { errorHandler } from './core/middleware/errorHandler';
+import { notFoundHandler } from './core/middleware/notFoundHandler';
+import { authRoutes } from './modules/auth';
+import { usersRoutes } from './modules/users';
+import { adminRoutes } from './modules/admin';
+import { clientRoutes } from './modules/client';
+import { supplierRoutes } from './modules/supplier';
+import { employeeRoutes } from './modules/employee';
+import { messagesRoutes } from './modules/shared/messages';
+import { notificationsRoutes } from './modules/shared/notifications';
 
 dotenv.config();
 
@@ -82,7 +81,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/routes/*.ts'], // paths to files containing OpenAPI definitions
+  apis: ['./src/routes/*.ts', './src/modules/*/*.routes.ts'], // paths to files containing OpenAPI definitions
 };
 
 const specs = swaggerJsdoc(swaggerOptions);
@@ -108,16 +107,13 @@ app.get('/ready', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/client', serviceRequestRoutes);
-app.use('/api/supplier', serviceRequestRoutes);
-// app.use('/api/jobs', jobRoutes);
-// app.use('/api/candidate', jobRoutes);
-// app.use('/api/documents', documentRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use('/api/client', clientRoutes);
+app.use('/api/supplier', supplierRoutes);
 app.use('/api/employee', employeeRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);

@@ -1,4 +1,4 @@
-import { initializeDatabase, checkDatabaseConnection } from '../database/init';
+import { initializeDatabase, checkDatabaseConnection } from '../core/database/init';
 import dotenv from 'dotenv';
 
 dotenv.config();

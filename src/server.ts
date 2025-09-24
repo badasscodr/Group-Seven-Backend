@@ -10,12 +10,14 @@ import swaggerJsdoc from 'swagger-jsdoc';
 
 import { errorHandler } from './core/middleware/errorHandler';
 import { notFoundHandler } from './core/middleware/notFoundHandler';
+import { initializeDatabase, checkDatabaseConnection } from './core/database/init';
 import { authRoutes } from './modules/auth';
 import { usersRoutes } from './modules/users';
 import { adminRoutes } from './modules/admin';
 import { clientRoutes } from './modules/client';
 import { supplierRoutes } from './modules/supplier';
 import { employeeRoutes } from './modules/employee';
+import { documentsRoutes } from './modules/documents';
 import { messagesRoutes } from './modules/shared/messages';
 import { notificationsRoutes } from './modules/shared/notifications';
 
@@ -44,8 +46,14 @@ app.use(cors({
     process.env.APP_URL || 'http://localhost:3001',
     'http://localhost:3000',
     'https://localhost:3000',
-    process.env.FRONTEND_URL || 'http://localhost:3000'
-  ],
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    // Vercel deployment URLs
+    'https://group-seven-frontend-rnwovesmz-awais-alwaisys-projects.vercel.app',
+    // Allow all Vercel preview domains for this project
+    /^https:\/\/group-seven-frontend-.*\.vercel\.app$/,
+    // Allow production domain when available
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(limiter);
@@ -53,8 +61,16 @@ app.use(limiter);
 // General middleware
 app.use(compression());
 app.use(morgan('combined'));
-app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Apply JSON middleware to all routes except document uploads
+app.use((req, res, next) => {
+  // Skip JSON parsing for document upload endpoint
+  if (req.path === '/api/documents' && req.method === 'POST') {
+    return next();
+  }
+  return express.json({ limit: '10mb' })(req, res, next);
+});
 
 // Swagger documentation
 const swaggerOptions = {
@@ -112,6 +128,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/employee', employeeRoutes);
+app.use('/api/documents', documentsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
@@ -119,10 +136,31 @@ app.use('/api/notifications', notificationsRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);
-  console.log(`📚 API Documentation available at: http://localhost:${PORT}/api-docs`);
-  console.log(`🏥 Health check available at: http://localhost:${PORT}/health`);
-});
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    // Check database connection
+    const dbConnected = await checkDatabaseConnection();
+    if (!dbConnected) {
+      console.error('❌ Failed to connect to database');
+      process.exit(1);
+    }
+
+    // Initialize database schema (skip for now to avoid conflicts)
+    // await initializeDatabase();
+
+    // Start the server
+    app.listen(PORT, () => {
+      console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);
+      console.log(`📚 API Documentation available at: http://localhost:${PORT}/api-docs`);
+      console.log(`🏥 Health check available at: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;

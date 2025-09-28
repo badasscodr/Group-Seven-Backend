@@ -4,7 +4,9 @@ import {
   getUserByIdAdmin,
   updateUserStatus,
   getAdminStats,
-  deleteUser
+  deleteUser,
+  getRecentServiceRequests,
+  convertCandidateToEmployee
 } from './admin.service';
 
 export const getUsersList = async (req: Request, res: Response) => {
@@ -127,6 +129,85 @@ export const deleteUserController = async (req: Request, res: Response) => {
       error: {
         code: error.message === 'User not found' ? 'USER_NOT_FOUND' : 'INTERNAL_ERROR',
         message: error.message || 'Failed to delete user'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const getRecentRequests = async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const requests = await getRecentServiceRequests(limit);
+
+    res.status(200).json({
+      success: true,
+      data: requests,
+      message: 'Recent service requests retrieved successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Failed to retrieve recent requests'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const convertCandidateToEmployeeController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      employeeId,
+      department,
+      position,
+      hireDate,
+      salary,
+      managerId
+    } = req.body;
+
+    // Validate required fields
+    if (!employeeId || !department || !position || !hireDate) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Employee ID, department, position, and hire date are required'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const result = await convertCandidateToEmployee(id, {
+      employeeId,
+      department,
+      position,
+      hireDate,
+      salary,
+      managerId
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Candidate converted to employee successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    const statusCode = error.message.includes('not found') ? 404 :
+                      error.message.includes('not a candidate') ? 400 : 500;
+
+    res.status(statusCode).json({
+      success: false,
+      error: {
+        code: statusCode === 404 ? 'USER_NOT_FOUND' :
+              statusCode === 400 ? 'INVALID_ROLE' : 'INTERNAL_ERROR',
+        message: error.message || 'Failed to convert candidate to employee'
       },
       timestamp: new Date().toISOString()
     });

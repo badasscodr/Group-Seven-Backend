@@ -5,7 +5,9 @@ import {
   getUserById,
   updateUserStatusController,
   getDashboardStats,
-  deleteUserController
+  deleteUserController,
+  getRecentRequests,
+  convertCandidateToEmployeeController
 } from './admin.controller';
 
 const router = express.Router();
@@ -151,5 +153,83 @@ router.put('/users/:id/status', authenticate, updateUserStatusController);
  *         description: User not found
  */
 router.delete('/users/:id', authenticate, deleteUserController);
+
+/**
+ * @swagger
+ * /api/admin/recent-requests:
+ *   get:
+ *     summary: Get recent service requests (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Maximum number of requests to return (default 10)
+ *     responses:
+ *       200:
+ *         description: Recent service requests retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/recent-requests', authenticate, getRecentRequests);
+
+/**
+ * @swagger
+ * /api/admin/users/{id}/convert-to-employee:
+ *   post:
+ *     summary: Convert candidate to employee
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - employeeId
+ *               - department
+ *               - position
+ *               - hireDate
+ *             properties:
+ *               employeeId:
+ *                 type: string
+ *               department:
+ *                 type: string
+ *               position:
+ *                 type: string
+ *               hireDate:
+ *                 type: string
+ *                 format: date
+ *               salary:
+ *                 type: number
+ *               managerId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Candidate converted to employee successfully
+ *       400:
+ *         description: Invalid request or user is not a candidate
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ *       404:
+ *         description: User not found
+ */
+router.post('/users/:id/convert-to-employee', authenticate, convertCandidateToEmployeeController);
 
 export default router;

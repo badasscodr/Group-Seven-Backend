@@ -5,7 +5,8 @@ import {
   updateProfile,
   uploadAvatar,
   deleteAvatar,
-  changePassword
+  changePassword,
+  avatarUploadMiddleware
 } from './users.controller';
 
 const router = express.Router();
@@ -61,7 +62,51 @@ router.get('/profile', authenticate, getProfile);
  */
 router.put('/profile', authenticate, updateProfile);
 
-router.post('/avatar', authenticate, uploadAvatar);
+/**
+ * @swagger
+ * /api/users/avatar:
+ *   post:
+ *     summary: Upload user avatar
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Avatar image file (max 5MB)
+ *     responses:
+ *       200:
+ *         description: Avatar uploaded successfully
+ *       400:
+ *         description: Invalid file or validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/avatar', authenticate, avatarUploadMiddleware, uploadAvatar);
+
+/**
+ * @swagger
+ * /api/users/avatar:
+ *   delete:
+ *     summary: Delete user avatar
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Avatar deleted successfully
+ *       404:
+ *         description: No avatar found
+ *       401:
+ *         description: Unauthorized
+ */
 router.delete('/avatar', authenticate, deleteAvatar);
 router.put('/password', authenticate, changePassword);
 

@@ -373,3 +373,26 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 
 CREATE TRIGGER update_service_requests_updated_at BEFORE UPDATE ON service_requests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Service Categories lookup table
+CREATE TABLE IF NOT EXISTS service_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert predefined service categories
+INSERT INTO service_categories (name, description) VALUES
+('construction', 'Construction and building services'),
+('maintenance', 'Maintenance and repair services'),
+('consulting', 'Business and technical consulting'),
+('technology', 'IT and technology services'),
+('legal', 'Legal and compliance services'),
+('hr_outsourcing', 'Human resources outsourcing'),
+('cleaning', 'Cleaning and facility management'),
+('security', 'Security services'),
+('catering', 'Catering and food services'),
+('transportation', 'Transportation and logistics')
+ON CONFLICT (name) DO NOTHING;

@@ -205,3 +205,99 @@ export const deleteUser = async (userId: string): Promise<void> => {
     client.release();
   }
 };
+
+export const getRecentServiceRequests = async (limit: number = 10) => {
+  const query = `
+    SELECT
+      sr.id,
+      sr.title,
+      sr.description,
+      sr.category,
+      sr.priority,
+      sr.status,
+      sr.created_at,
+      u.first_name || ' ' || u.last_name as client_name,
+      u.email as client_email,
+      COUNT(q.id) as quotation_count
+    FROM service_requests sr
+    JOIN users u ON sr.client_id = u.id
+    LEFT JOIN quotations q ON sr.id = q.service_request_id
+    GROUP BY sr.id, sr.title, sr.description, sr.category, sr.priority, sr.status, sr.created_at, u.first_name, u.last_name, u.email
+    ORDER BY sr.created_at DESC
+    LIMIT $1
+  `;
+
+  const result = await pool.query(query, [limit]);
+  return result.rows;
+};
+
+export const convertCandidateToEmployee = async (
+  userId: string,
+  employeeData: {
+    employeeId: string;
+    department: string;
+    position: string;
+    hireDate: string;
+    salary?: number;
+    managerId?: string;
+  }
+): Promise<AdminUserResponse> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // First, verify the user exists and is a candidate
+    const userResult = await client.query(
+      'SELECT id, role, first_name, last_name, email FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const user = userResult.rows[0];
+    if (user.role !== 'candidate') {
+      throw new Error('User is not a candidate');
+    }
+
+    // Update user role to employee
+    await client.query(
+      'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['employee', userId]
+    );
+
+    // Create employee profile
+    const employeeProfileResult = await client.query(
+      `INSERT INTO employee_profiles (
+        user_id, employee_id, department, position, hire_date, salary, manager_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        userId,
+        employeeData.employeeId,
+        employeeData.department,
+        employeeData.position,
+        employeeData.hireDate,
+        employeeData.salary || null,
+        employeeData.managerId || null
+      ]
+    );
+
+    // Optionally keep candidate profile for reference (don't delete)
+    // This preserves the candidate's CV, skills, etc. for historical records
+
+    await client.query('COMMIT');
+
+    return {
+      ...user,
+      role: 'employee',
+      profile: employeeProfileResult.rows[0]
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};

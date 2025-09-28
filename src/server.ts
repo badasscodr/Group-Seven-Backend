@@ -20,6 +20,8 @@ import { employeeRoutes } from './modules/employee';
 import { documentsRoutes } from './modules/documents';
 import { messagesRoutes } from './modules/shared/messages';
 import { notificationsRoutes } from './modules/shared/notifications';
+import assignmentRoutes from './modules/assignments/assignment.routes';
+import visaRoutes from './modules/visa/visa.routes';
 
 dotenv.config();
 
@@ -131,6 +133,8 @@ app.use('/api/employee', employeeRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/visa', visaRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
@@ -146,7 +150,7 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Initialize database schema (skip for now to avoid conflicts)
+    // Initialize database schema (skip to avoid conflicts with existing data)
     // await initializeDatabase();
 
     // Start the server

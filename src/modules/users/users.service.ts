@@ -1,6 +1,7 @@
 import pool from '../../core/config/database';
 import { UserRole } from '../../shared/types/user.types';
 import { UpdateProfileRequest, UserProfileResponse } from './users.types';
+import { uploadFileToR2, deleteFileFromR2, FileMetadata } from '../../core/services/cloudflare-r2.service';
 
 export const getUserById = async (userId: string) => {
   const result = await pool.query(
@@ -286,5 +287,127 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
         await client.query(candidateUpdateQuery, candidateValues);
       }
       break;
+  }
+};
+
+/**
+ * Update user avatar
+ */
+export const updateUserAvatar = async (
+  userId: string,
+  file: Express.Multer.File
+): Promise<{ avatarUrl: string; uploadResult: any }> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get current avatar to delete old one
+    const currentAvatarResult = await client.query(
+      'SELECT avatar_url FROM users WHERE id = $1',
+      [userId]
+    );
+
+    const currentAvatarUrl = currentAvatarResult.rows[0]?.avatar_url;
+
+    // Upload new avatar to Cloudflare R2
+    const fileMetadata: FileMetadata = {
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      userId,
+      category: 'avatars',
+    };
+
+    const uploadResult = await uploadFileToR2(file.buffer, fileMetadata);
+
+    // Update user's avatar URL in database
+    const updateQuery = `
+      UPDATE users
+      SET avatar_url = $1
+      WHERE id = $2
+      RETURNING avatar_url
+    `;
+
+    const result = await client.query(updateQuery, [uploadResult.fileUrl, userId]);
+
+    await client.query('COMMIT');
+
+    // Delete old avatar if it exists and is different
+    if (currentAvatarUrl && currentAvatarUrl !== uploadResult.fileUrl) {
+      try {
+        // Extract filename from URL for deletion
+        const oldFilename = currentAvatarUrl.split('/').pop();
+        if (oldFilename) {
+          await deleteFileFromR2(`avatars/${userId}/${oldFilename}`);
+        }
+      } catch (error) {
+        console.warn('Failed to delete old avatar file:', error);
+      }
+    }
+
+    return {
+      avatarUrl: result.rows[0].avatar_url,
+      uploadResult,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating avatar:', error);
+    throw new Error('Failed to update avatar');
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Delete user avatar
+ */
+export const deleteUserAvatar = async (userId: string): Promise<boolean> => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get current avatar URL
+    const avatarResult = await client.query(
+      'SELECT avatar_url FROM users WHERE id = $1',
+      [userId]
+    );
+
+    const avatarUrl = avatarResult.rows[0]?.avatar_url;
+
+    if (!avatarUrl) {
+      return false; // No avatar to delete
+    }
+
+    // Remove avatar URL from database
+    const updateQuery = `
+      UPDATE users
+      SET avatar_url = NULL
+      WHERE id = $1
+    `;
+
+    await client.query(updateQuery, [userId]);
+
+    await client.query('COMMIT');
+
+    // Delete file from Cloudflare R2
+    try {
+      // Extract filename from URL for deletion
+      const filename = avatarUrl.split('/').pop();
+      if (filename) {
+        await deleteFileFromR2(`avatars/${userId}/${filename}`);
+      }
+    } catch (error) {
+      console.warn('Failed to delete avatar file from storage:', error);
+    }
+
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting avatar:', error);
+    throw new Error('Failed to delete avatar');
+  } finally {
+    client.release();
   }
 };

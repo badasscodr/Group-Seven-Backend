@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const app = express();
+const app =  express();
 const PORT = process.env.PORT || 8000;
 
 // Database connection

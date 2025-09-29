@@ -51,6 +51,7 @@ app.use(cors({
     process.env.FRONTEND_URL || 'http://localhost:3000',
     // Vercel deployment URLs
     'https://group-seven-frontend-rnwovesmz-awais-alwaisys-projects.vercel.app',
+    'https://group-seven-frontend.vercel.app',
     // Allow all Vercel preview domains for this project
     /^https:\/\/group-seven-frontend-.*\.vercel\.app$/,
     // Allow production domain when available

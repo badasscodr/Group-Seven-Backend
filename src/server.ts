@@ -10,6 +10,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 
 import { errorHandler } from './core/middleware/errorHandler';
 import { notFoundHandler } from './core/middleware/notFoundHandler';
+import { responseTransformer, requestTransformer } from './core/middleware/responseTransformer';
 import { initializeDatabase, checkDatabaseConnection } from './core/database/init';
 import { authRoutes } from './modules/auth';
 import { usersRoutes } from './modules/users';
@@ -73,6 +74,18 @@ app.use((req, res, next) => {
     return next();
   }
   return express.json({ limit: '10mb' })(req, res, next);
+});
+
+// Add response transformer middleware (converts snake_case to camelCase)
+app.use(responseTransformer);
+
+// Add request transformer middleware (converts camelCase to snake_case)
+// Note: Only apply to JSON requests, not file uploads
+app.use((req, res, next) => {
+  if (req.path === '/api/documents' && req.method === 'POST') {
+    return next();
+  }
+  return requestTransformer(req, res, next);
 });
 
 // Swagger documentation

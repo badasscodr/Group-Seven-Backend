@@ -1,7 +1,7 @@
 import pool from '../../core/config/database';
 import { UserRole } from '../../shared/types/user.types';
 import { UpdateProfileRequest, UserProfileResponse } from './users.types';
-import { uploadFileToR2, deleteFileFromR2, FileMetadata } from '../../core/services/cloudflare-r2.service';
+import { uploadFileToR2, deleteFileFromR2, generateDownloadUrl, FileMetadata } from '../../core/services/cloudflare-r2.service';
 
 export const getUserById = async (userId: string) => {
   const result = await pool.query(
@@ -22,6 +22,16 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
 
   if (!user) {
     throw new Error('User not found');
+  }
+
+  // Generate presigned URL for avatar if it exists (like documents do)
+  if (user.avatar_url) {
+    try {
+      const presignedUrl = await generateDownloadUrl(user.avatar_url, 604800); // 7 days
+      user.avatar_url = presignedUrl;
+    } catch (error) {
+      console.error('Failed to generate presigned URL for avatar:', error);
+    }
   }
 
   let profile = null;
@@ -321,7 +331,7 @@ export const updateUserAvatar = async (
 
     const uploadResult = await uploadFileToR2(file.buffer, fileMetadata);
 
-    // Update user's avatar URL in database
+    // Save filename (not URL) to database - same as documents
     const updateQuery = `
       UPDATE users
       SET avatar_url = $1
@@ -329,25 +339,25 @@ export const updateUserAvatar = async (
       RETURNING avatar_url
     `;
 
-    const result = await client.query(updateQuery, [uploadResult.fileUrl, userId]);
+    // Save filename path only
+    const result = await client.query(updateQuery, [uploadResult.filename, userId]);
 
     await client.query('COMMIT');
 
     // Delete old avatar if it exists and is different
-    if (currentAvatarUrl && currentAvatarUrl !== uploadResult.fileUrl) {
+    if (currentAvatarUrl && currentAvatarUrl !== uploadResult.filename) {
       try {
-        // Extract filename from URL for deletion
-        const oldFilename = currentAvatarUrl.split('/').pop();
-        if (oldFilename) {
-          await deleteFileFromR2(`avatars/${userId}/${oldFilename}`);
-        }
+        await deleteFileFromR2(currentAvatarUrl);
       } catch (error) {
         console.warn('Failed to delete old avatar file:', error);
       }
     }
 
+    // Generate presigned URL for response (7 days - same as documents)
+    const presignedUrl = await generateDownloadUrl(uploadResult.filename, 604800);
+
     return {
-      avatarUrl: result.rows[0].avatar_url,
+      avatarUrl: presignedUrl, // Return presigned URL
       uploadResult,
     };
   } catch (error) {

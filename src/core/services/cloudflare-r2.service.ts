@@ -75,7 +75,17 @@ export const uploadFileToR2 = async (
     await r2Client.send(uploadCommand);
 
     // Generate public URL
-    const fileUrl = `${process.env.S3_ENDPOINT?.replace('//', `//${BUCKET_NAME}.`)}/${fileKey}`;
+    // If PUBLIC_R2_DOMAIN is set, use it for public access
+    // Otherwise, fall back to R2 endpoint (requires presigned URLs for access)
+    let fileUrl: string;
+
+    if (process.env.PUBLIC_R2_DOMAIN) {
+      // Use custom domain or R2.dev public domain
+      fileUrl = `${process.env.PUBLIC_R2_DOMAIN}/${fileKey}`;
+    } else {
+      // Use R2 endpoint (note: this requires the bucket to be public or use presigned URLs)
+      fileUrl = `${process.env.S3_ENDPOINT?.replace('//', `//${BUCKET_NAME}.`)}/${fileKey}`;
+    }
 
     return {
       fileUrl,

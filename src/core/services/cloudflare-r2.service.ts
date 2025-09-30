@@ -72,7 +72,7 @@ export const uploadFileToR2 = async (
     });
 
     // Execute upload
-    await r2Client.send(uploadCommand);
+      await r2Client.send(uploadCommand);
 
     // Generate public URL
     // If PUBLIC_R2_DOMAIN is set, use it for public access

@@ -191,9 +191,9 @@ export const submitLeaveRequestController = async (req: AuthenticatedRequest, re
     }
 
     const leaveRequest = await submitLeaveRequest(employeeId, {
-      leave_type: leaveType,
-      start_date: startDate,
-      end_date: endDate,
+      leaveType: leaveType,
+      startDate: startDate,
+      endDate: endDate,
       reason
     });
 
@@ -325,12 +325,12 @@ export const createProfileController = async (req: AuthenticatedRequest, res: Re
     }
 
     const profile = await createEmployeeProfile(userId, {
-      employee_id: employeeId,
+      employeeId: employeeId,
       department,
       position,
-      hire_date: hireDate,
+      hireDate: hireDate,
       salary,
-      manager_id: managerId
+      managerId: managerId
     });
 
     res.status(201).json({

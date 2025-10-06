@@ -33,8 +33,8 @@ export const getAvailableServiceRequestsController = async (
     const filters: ServiceRequestFilters = {
       category: req.query.category as string,
       priority: req.query.priority as string,
-      budget_min: req.query.budget_min ? parseFloat(req.query.budget_min as string) : undefined,
-      budget_max: req.query.budget_max ? parseFloat(req.query.budget_max as string) : undefined,
+      budgetMin: req.query.budget_min ? parseFloat(req.query.budget_min as string) : undefined,
+      budgetMax: req.query.budget_max ? parseFloat(req.query.budget_max as string) : undefined,
       page: parseInt(req.query.page as string) || 1,
       limit: parseInt(req.query.limit as string) || 10,
     };

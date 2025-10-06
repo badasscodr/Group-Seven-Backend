@@ -10,27 +10,27 @@ export const getAllUsers = async (
 
   let query = `
     SELECT
-      u.id, u.email, u.role, u.first_name, u.last_name, u.phone,
-      u.is_active, u.email_verified, u.created_at, u.last_login,
+      u."id", u."email", u."role", u."firstName", u."lastName", u."phone",
+      u."isActive", u."emailVerified", u."createdAt", u."lastLogin",
       CASE
-        WHEN u.role = 'client' THEN cp.company_name
-        WHEN u.role = 'supplier' THEN sp.company_name
+        WHEN u."role" = 'client' THEN cp."companyName"
+        WHEN u."role" = 'supplier' THEN sp."companyName"
         ELSE NULL
-      END as company_name
+      END as "companyName"
     FROM users u
-    LEFT JOIN client_profiles cp ON u.id = cp.user_id AND u.role = 'client'
-    LEFT JOIN supplier_profiles sp ON u.id = sp.user_id AND u.role = 'supplier'
+    LEFT JOIN "clientProfiles" cp ON u."id" = cp."userId" AND u."role" = 'client'
+    LEFT JOIN "supplierProfiles" sp ON u."id" = sp."userId" AND u."role" = 'supplier'
   `;
 
   const params: any[] = [];
   let paramCount = 0;
 
   if (role) {
-    query += ` WHERE u.role = $${++paramCount}`;
+    query += ` WHERE u."role" = $${++paramCount}`;
     params.push(role);
   }
 
-  query += ` ORDER BY u.created_at DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
+  query += ` ORDER BY u."createdAt" DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
   params.push(limit, offset);
 
   const result = await pool.query(query, params);
@@ -39,7 +39,7 @@ export const getAllUsers = async (
   let countQuery = 'SELECT COUNT(*) FROM users';
   const countParams: any[] = [];
   if (role) {
-    countQuery += ' WHERE role = $1';
+    countQuery += ' WHERE "role" = $1';
     countParams.push(role);
   }
 
@@ -60,11 +60,11 @@ export const getAllUsers = async (
 export const getUserByIdAdmin = async (userId: string): Promise<AdminUserResponse> => {
   const userQuery = `
     SELECT
-      u.id, u.email, u.role, u.first_name, u.last_name, u.phone,
-      u.avatar_url, u.is_active, u.email_verified, u.created_at,
-      u.updated_at, u.last_login
+      u."id", u."email", u."role", u."firstName", u."lastName", u."phone",
+      u."avatarUrl", u."isActive", u."emailVerified", u."createdAt",
+      u."updatedAt", u."lastLogin"
     FROM users u
-    WHERE u.id = $1
+    WHERE u."id" = $1
   `;
 
   const userResult = await pool.query(userQuery, [userId]);
@@ -81,7 +81,7 @@ export const getUserByIdAdmin = async (userId: string): Promise<AdminUserRespons
   switch (user.role) {
     case 'client':
       const clientResult = await pool.query(
-        'SELECT * FROM client_profiles WHERE user_id = $1',
+        'SELECT * FROM "clientProfiles" WHERE "userId" = $1',
         [userId]
       );
       profileData = clientResult.rows[0] || null;
@@ -89,7 +89,7 @@ export const getUserByIdAdmin = async (userId: string): Promise<AdminUserRespons
 
     case 'supplier':
       const supplierResult = await pool.query(
-        'SELECT * FROM supplier_profiles WHERE user_id = $1',
+        'SELECT * FROM "supplierProfiles" WHERE "userId" = $1',
         [userId]
       );
       profileData = supplierResult.rows[0] || null;
@@ -97,7 +97,7 @@ export const getUserByIdAdmin = async (userId: string): Promise<AdminUserRespons
 
     case 'employee':
       const employeeResult = await pool.query(
-        'SELECT * FROM employee_profiles WHERE user_id = $1',
+        'SELECT * FROM "employeeProfiles" WHERE "userId" = $1',
         [userId]
       );
       profileData = employeeResult.rows[0] || null;
@@ -105,7 +105,7 @@ export const getUserByIdAdmin = async (userId: string): Promise<AdminUserRespons
 
     case 'candidate':
       const candidateResult = await pool.query(
-        'SELECT * FROM candidate_profiles WHERE user_id = $1',
+        'SELECT * FROM "candidateProfiles" WHERE "userId" = $1',
         [userId]
       );
       profileData = candidateResult.rows[0] || null;
@@ -124,9 +124,9 @@ export const updateUserStatus = async (
 ): Promise<AdminUserResponse> => {
   const result = await pool.query(
     `UPDATE users
-     SET is_active = $1, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $2
-     RETURNING id, email, role, first_name, last_name, is_active`,
+     SET "isActive" = $1, "updatedAt" = CURRENT_TIMESTAMP
+     WHERE "id" = $2
+     RETURNING "id", "email", "role", "firstName", "lastName", "isActive"`,
     [isActive, userId]
   );
 
@@ -140,10 +140,10 @@ export const updateUserStatus = async (
 export const getAdminStats = async (): Promise<AdminStatsResponse> => {
   // Get user counts by role
   const roleStatsQuery = `
-    SELECT role, COUNT(*) as count
+    SELECT "role", COUNT(*) as count
     FROM users
-    WHERE is_active = true
-    GROUP BY role
+    WHERE "isActive" = true
+    GROUP BY "role"
   `;
 
   const roleStatsResult = await pool.query(roleStatsQuery);
@@ -152,7 +152,7 @@ export const getAdminStats = async (): Promise<AdminStatsResponse> => {
   const recentRegistrationsQuery = `
     SELECT COUNT(*) as count
     FROM users
-    WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+    WHERE "createdAt" >= CURRENT_DATE - INTERVAL '30 days'
   `;
 
   const recentRegistrationsResult = await pool.query(recentRegistrationsQuery);
@@ -161,7 +161,7 @@ export const getAdminStats = async (): Promise<AdminStatsResponse> => {
   const activeSessionsQuery = `
     SELECT COUNT(*) as count
     FROM users
-    WHERE last_login >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+    WHERE "lastLogin" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
   `;
 
   const activeSessionsResult = await pool.query(activeSessionsQuery);
@@ -189,7 +189,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
 
     // Soft delete - just mark as inactive
     const result = await client.query(
-      'UPDATE users SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE users SET "isActive" = false, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $1',
       [userId]
     );
 
@@ -215,15 +215,15 @@ export const getRecentServiceRequests = async (limit: number = 10) => {
       sr.category,
       sr.priority,
       sr.status,
-      sr.created_at,
-      u.first_name || ' ' || u.last_name as client_name,
+      sr.createdAt,
+      u."firstName" || ' ' || u."lastName" as client_name,
       u.email as client_email,
       COUNT(q.id) as quotation_count
     FROM service_requests sr
-    JOIN users u ON sr.client_id = u.id
-    LEFT JOIN quotations q ON sr.id = q.service_request_id
-    GROUP BY sr.id, sr.title, sr.description, sr.category, sr.priority, sr.status, sr.created_at, u.first_name, u.last_name, u.email
-    ORDER BY sr.created_at DESC
+    JOIN users u ON sr."clientId" = u.id
+    LEFT JOIN quotations q ON sr.id = q."serviceRequestId"
+    GROUP BY sr.id, sr.title, sr.description, sr.category, sr.priority, sr.status, sr.createdAt, u.firstName, u.lastName, u.email
+    ORDER BY sr."createdAt" DESC
     LIMIT $1
   `;
 
@@ -249,7 +249,7 @@ export const convertCandidateToEmployee = async (
 
     // First, verify the user exists and is a candidate
     const userResult = await client.query(
-      'SELECT id, role, first_name, last_name, email FROM users WHERE id = $1',
+      'SELECT "id", "role", "firstName", "lastName", "email" FROM users WHERE "id" = $1',
       [userId]
     );
 
@@ -264,14 +264,14 @@ export const convertCandidateToEmployee = async (
 
     // Update user role to employee
     await client.query(
-      'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE users SET "role" = $1, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2',
       ['employee', userId]
     );
 
     // Create employee profile
     const employeeProfileResult = await client.query(
-      `INSERT INTO employee_profiles (
-        user_id, employee_id, department, position, hire_date, salary, manager_id
+      `INSERT INTO "employeeProfiles" (
+        "userId", "employeeId", "department", "position", "hireDate", "salary", "managerId"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         userId,

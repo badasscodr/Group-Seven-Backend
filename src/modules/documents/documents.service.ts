@@ -38,8 +38,8 @@ export const uploadDocument = async (
     // Save document metadata to database
     const insertQuery = `
       INSERT INTO documents (
-        user_id, filename, original_name, file_url, file_size,
-        mime_type, category, is_public
+        "userId", "filename", "originalName", "fileUrl", "fileSize",
+        "mimeType", "category", "isPublic"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
@@ -63,15 +63,15 @@ export const uploadDocument = async (
     return {
       document: {
         id: document.id,
-        userId: document.user_id,
+        userId: document.userId,
         filename: document.filename,
-        originalName: document.original_name,
-        fileUrl: document.file_url,
-        fileSize: document.file_size,
-        mimeType: document.mime_type,
+        originalName: document.originalName,
+        fileUrl: document.fileUrl,
+        fileSize: document.fileSize,
+        mimeType: document.mimeType,
         category: document.category,
-        isPublic: document.is_public,
-        uploadedAt: document.uploaded_at,
+        isPublic: document.isPublic,
+        uploadedAt: document.uploadedAt,
       },
       uploadResult,
     };
@@ -94,25 +94,25 @@ export const getUserDocuments = async (
   try {
     const { category, isPublic, limit = 50, offset = 0 } = query;
 
-    let whereClause = 'WHERE user_id = $1';
+    let whereClause = 'WHERE "userId" = $1';
     const params: any[] = [userId];
     let paramIndex = 2;
 
     if (category !== undefined) {
-      whereClause += ` AND category = $${paramIndex}`;
+      whereClause += ` AND "category" = $${paramIndex}`;
       params.push(category);
       paramIndex++;
     }
 
     if (isPublic !== undefined) {
-      whereClause += ` AND is_public = $${paramIndex}`;
+      whereClause += ` AND "isPublic" = $${paramIndex}`;
       params.push(isPublic);
       paramIndex++;
     }
 
     // Get total count
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*) AS "total"
       FROM documents
       ${whereClause}
     `;
@@ -124,7 +124,7 @@ export const getUserDocuments = async (
       SELECT *
       FROM documents
       ${whereClause}
-      ORDER BY uploaded_at DESC
+      ORDER BY "uploadedAt" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     params.push(limit, offset);
@@ -133,15 +133,15 @@ export const getUserDocuments = async (
 
     const documents: Document[] = documentsResult.rows.map((row) => ({
       id: row.id,
-      userId: row.user_id,
+      userId: row.userId,
       filename: row.filename,
-      originalName: row.original_name,
-      fileUrl: row.file_url,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
+      originalName: row.originalName,
+      fileUrl: row.fileUrl,
+      fileSize: row.fileSize,
+      mimeType: row.mimeType,
       category: row.category,
-      isPublic: row.is_public,
-      uploadedAt: row.uploaded_at,
+      isPublic: row.isPublic,
+      uploadedAt: row.uploadedAt,
     }));
 
     return { documents, total };
@@ -157,16 +157,16 @@ export const getUserDocuments = async (
 export const getDocumentById = async (documentId: string, userId?: string): Promise<Document | null> => {
   try {
     let query = `
-      SELECT d.*, u.first_name, u.last_name, u.role
+      SELECT d.*, u."firstName", u."lastName", u."role"
       FROM documents d
-      JOIN users u ON d.user_id = u.id
-      WHERE d.id = $1
+      JOIN users u ON d."userId" = u."id"
+      WHERE d."id" = $1
     `;
     const params = [documentId];
 
     // If userId is provided, ensure user can only access their own documents or public ones
     if (userId) {
-      query += ` AND (d.user_id = $2 OR d.is_public = true)`;
+      query += ` AND (d."userId" = $2 OR d."isPublic" = true)`;
       params.push(userId);
     }
 
@@ -179,15 +179,15 @@ export const getDocumentById = async (documentId: string, userId?: string): Prom
     const row = result.rows[0];
     return {
       id: row.id,
-      userId: row.user_id,
+      userId: row.userId,
       filename: row.filename,
-      originalName: row.original_name,
-      fileUrl: row.file_url,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
+      originalName: row.originalName,
+      fileUrl: row.fileUrl,
+      fileSize: row.fileSize,
+      mimeType: row.mimeType,
       category: row.category,
-      isPublic: row.is_public,
-      uploadedAt: row.uploaded_at,
+      isPublic: row.isPublic,
+      uploadedAt: row.uploadedAt,
     };
   } catch (error) {
     console.error('Error getting document by ID:', error);
@@ -209,13 +209,13 @@ export const updateDocument = async (
     let paramIndex = 1;
 
     if (updateData.category !== undefined) {
-      setClauses.push(`category = $${paramIndex}`);
+      setClauses.push(`"category" = $${paramIndex}`);
       params.push(updateData.category);
       paramIndex++;
     }
 
     if (updateData.isPublic !== undefined) {
-      setClauses.push(`is_public = $${paramIndex}`);
+      setClauses.push(`"isPublic" = $${paramIndex}`);
       params.push(updateData.isPublic);
       paramIndex++;
     }
@@ -227,7 +227,7 @@ export const updateDocument = async (
     const updateQuery = `
       UPDATE documents
       SET ${setClauses.join(', ')}
-      WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}
+      WHERE "id" = $${paramIndex} AND "userId" = $${paramIndex + 1}
       RETURNING *
     `;
     params.push(documentId, userId);
@@ -241,15 +241,15 @@ export const updateDocument = async (
     const row = result.rows[0];
     return {
       id: row.id,
-      userId: row.user_id,
+      userId: row.userId,
       filename: row.filename,
-      originalName: row.original_name,
-      fileUrl: row.file_url,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
+      originalName: row.originalName,
+      fileUrl: row.fileUrl,
+      fileSize: row.fileSize,
+      mimeType: row.mimeType,
       category: row.category,
-      isPublic: row.is_public,
-      uploadedAt: row.uploaded_at,
+      isPublic: row.isPublic,
+      uploadedAt: row.uploadedAt,
     };
   } catch (error) {
     console.error('Error updating document:', error);
@@ -267,7 +267,7 @@ export const deleteDocument = async (documentId: string, userId: string): Promis
     await client.query('BEGIN');
 
     // Get document details first
-    const getDocQuery = 'SELECT * FROM documents WHERE id = $1 AND user_id = $2';
+    const getDocQuery = 'SELECT * FROM documents WHERE "id" = $1 AND "userId" = $2';
     const docResult = await client.query(getDocQuery, [documentId, userId]);
 
     if (docResult.rows.length === 0) {
@@ -277,7 +277,7 @@ export const deleteDocument = async (documentId: string, userId: string): Promis
     const document = docResult.rows[0];
 
     // Delete from database
-    const deleteQuery = 'DELETE FROM documents WHERE id = $1 AND user_id = $2';
+    const deleteQuery = 'DELETE FROM documents WHERE "id" = $1 AND "userId" = $2';
     await client.query(deleteQuery, [documentId, userId]);
 
     // Delete from Cloudflare R2
@@ -329,13 +329,13 @@ export const getDocumentStats = async (userId: string): Promise<DocumentStats> =
   try {
     const query = `
       SELECT
-        COUNT(*) as total_documents,
-        SUM(file_size) as total_size,
-        category,
-        COUNT(*) as category_count
+        COUNT(*) AS "totalDocuments",
+        SUM("fileSize") AS "totalSize",
+        "category",
+        COUNT(*) AS "categoryCount"
       FROM documents
-      WHERE user_id = $1
-      GROUP BY category
+      WHERE "userId" = $1
+      GROUP BY "category"
     `;
 
     const result = await pool.query(query, [userId]);
@@ -347,9 +347,9 @@ export const getDocumentStats = async (userId: string): Promise<DocumentStats> =
     };
 
     result.rows.forEach((row) => {
-      stats.totalDocuments += parseInt(row.category_count);
-      stats.totalSize += parseInt(row.total_size || 0);
-      stats.documentsByCategory[row.category as DocumentCategory] = parseInt(row.category_count);
+      stats.totalDocuments += parseInt(row.categoryCount);
+      stats.totalSize += parseInt(row.totalSize || 0);
+      stats.documentsByCategory[row.category as DocumentCategory] = parseInt(row.categoryCount);
     });
 
     return stats;
@@ -368,19 +368,19 @@ export const getPublicDocuments = async (
   try {
     const { category, limit = 50, offset = 0 } = query;
 
-    let whereClause = 'WHERE is_public = true';
+    let whereClause = 'WHERE "isPublic" = true';
     const params: any[] = [];
     let paramIndex = 1;
 
     if (category !== undefined) {
-      whereClause += ` AND category = $${paramIndex}`;
+      whereClause += ` AND "category" = $${paramIndex}`;
       params.push(category);
       paramIndex++;
     }
 
     // Get total count
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*) AS "total"
       FROM documents
       ${whereClause}
     `;
@@ -389,11 +389,11 @@ export const getPublicDocuments = async (
 
     // Get documents with pagination
     const documentsQuery = `
-      SELECT d.*, u.first_name, u.last_name, u.role
+      SELECT d.*, u."firstName", u."lastName", u."role"
       FROM documents d
-      JOIN users u ON d.user_id = u.id
+      JOIN users u ON d."userId" = u."id"
       ${whereClause}
-      ORDER BY d.uploaded_at DESC
+      ORDER BY d."uploadedAt" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     params.push(limit, offset);
@@ -402,15 +402,15 @@ export const getPublicDocuments = async (
 
     const documents: Document[] = documentsResult.rows.map((row) => ({
       id: row.id,
-      userId: row.user_id,
+      userId: row.userId,
       filename: row.filename,
-      originalName: row.original_name,
-      fileUrl: row.file_url,
-      fileSize: row.file_size,
-      mimeType: row.mime_type,
+      originalName: row.originalName,
+      fileUrl: row.fileUrl,
+      fileSize: row.fileSize,
+      mimeType: row.mimeType,
       category: row.category,
-      isPublic: row.is_public,
-      uploadedAt: row.uploaded_at,
+      isPublic: row.isPublic,
+      uploadedAt: row.uploadedAt,
     }));
 
     return { documents, total };

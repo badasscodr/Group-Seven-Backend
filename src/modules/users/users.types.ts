@@ -13,15 +13,15 @@ export interface ChangePasswordRequest {
 export interface UserProfileResponse {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   role: string;
   phone?: string;
-  avatar_url?: string;
-  is_active: boolean;
+  avatarUrl?: string;
+  isActive: boolean;
   email_verified: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
   last_login?: Date;
   profile?: any;
 }

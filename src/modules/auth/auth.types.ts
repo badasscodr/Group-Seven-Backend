@@ -17,11 +17,11 @@ export interface AuthResponse {
   user: {
     id: string;
     email: string;
-    first_name: string;
-    last_name: string;
+    firstName: string;
+    lastName: string;
     role: string;
     avatar?: string;
-    is_active?: boolean;
+    isActive?: boolean;
   };
   accessToken: string;
   refreshToken: string;

@@ -9,15 +9,15 @@ export interface AdminUserListQuery {
 export interface AdminUserResponse {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   role: string;
   phone?: string;
-  avatar_url?: string;
-  is_active: boolean;
+  avatarUrl?: string;
+  isActive: boolean;
   email_verified: boolean;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   last_login?: string;
   profile?: any;
 }

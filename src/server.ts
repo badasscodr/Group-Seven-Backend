@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -12,6 +13,7 @@ import { errorHandler } from './core/middleware/errorHandler';
 import { notFoundHandler } from './core/middleware/notFoundHandler';
 import { responseTransformer, requestTransformer } from './core/middleware/responseTransformer';
 import { initializeDatabase, checkDatabaseConnection } from './core/database/init';
+import { initializeSocketService } from './core/services/socket.service';
 import { authRoutes } from './modules/auth';
 import { usersRoutes } from './modules/users';
 import { adminRoutes } from './modules/admin';
@@ -77,17 +79,13 @@ app.use((req, res, next) => {
   return express.json({ limit: '10mb' })(req, res, next);
 });
 
-// Add response transformer middleware (converts snake_case to camelCase)
-app.use(responseTransformer);
+// NOTE: Response transformer disabled - database now uses camelCase column names
+// No transformation needed since frontend, backend, and database all use camelCase
+// app.use(responseTransformer);
 
-// Add request transformer middleware (converts camelCase to snake_case)
-// Note: Only apply to JSON requests, not file uploads
-app.use((req, res, next) => {
-  if (req.path === '/api/documents' && req.method === 'POST') {
-    return next();
-  }
-  return requestTransformer(req, res, next);
-});
+// NOTE: Request transformer REMOVED - caused validation errors
+// Frontend sends camelCase → Backend receives camelCase → Database uses camelCase
+// No transformation needed at any layer
 
 // Swagger documentation
 const swaggerOptions = {
@@ -168,11 +166,19 @@ const startServer = async () => {
     // Initialize database schema (skip to avoid conflicts with existing data)
     // await initializeDatabase();
 
+    // Create HTTP server
+    const httpServer = createServer(app);
+
+    // Initialize Socket.IO
+    const socketService = initializeSocketService(httpServer);
+    console.log('✅ Socket.IO initialized for real-time messaging');
+
     // Start the server
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);
       console.log(`📚 API Documentation available at: http://localhost:${PORT}/api-docs`);
       console.log(`🏥 Health check available at: http://localhost:${PORT}/health`);
+      console.log(`🔌 WebSocket available at: ws://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

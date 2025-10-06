@@ -1,50 +1,50 @@
 export interface AttendanceRecord {
   id: string;
-  employee_id: string;
+  employeeId: string;
   date: string;
   clock_in_time: Date | null;
   clock_out_time: Date | null;
   total_hours: number | null;
   status: 'present' | 'absent' | 'late' | 'half_day';
   notes?: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface LeaveRequest {
   id: string;
-  employee_id: string;
-  leave_type: 'annual' | 'sick' | 'personal' | 'emergency' | 'maternity' | 'paternity';
-  start_date: Date;
-  end_date: Date;
+  employeeId: string;
+  leaveType: 'annual' | 'sick' | 'personal' | 'emergency' | 'maternity' | 'paternity';
+  startDate: Date;
+  endDate: Date;
   days_requested: number;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
-  approved_by?: string;
-  approved_at?: Date;
+  approvedBy?: string;
+  approvedAt?: Date;
   rejection_reason?: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface EmployeeProfile {
   id: string;
-  user_id: string;
-  employee_id: string;
+  userId: string;
+  employeeId: string;
   department: string;
   position: string;
-  hire_date: Date;
+  hireDate: Date;
   salary?: number;
-  manager_id?: string;
+  managerId?: string;
   status: 'active' | 'inactive' | 'terminated';
   annual_leave_balance: number;
   sick_leave_balance: number;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AttendanceSummary {
-  employee_id: string;
+  employeeId: string;
   total_days: number;
   present_days: number;
   absent_days: number;

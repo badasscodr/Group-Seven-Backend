@@ -1,34 +1,34 @@
 export interface ClientProfile {
   id: string;
-  user_id: string;
-  company_name?: string;
+  userId: string;
+  companyName?: string;
   industry?: string;
-  company_size?: string;
+  companySize?: string;
   address?: string;
   city?: string;
   country?: string;
   website?: string;
-  business_license?: string;
-  created_at: string;
+  businessLicense?: string;
+  createdAt: string;
 }
 
 export interface ServiceRequest {
   id: string;
-  client_id: string;
+  clientId: string;
   title: string;
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'draft' | 'published' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold';
-  budget_min?: number;
-  budget_max?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   deadline?: string;
   location?: string;
   requirements?: string;
   assigned_supplier_id?: string;
   assigned_employee_id?: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateServiceRequestData {
@@ -36,8 +36,8 @@ export interface CreateServiceRequestData {
   description: string;
   category: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  budget_min?: number;
-  budget_max?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   deadline?: string;
   location?: string;
   requirements?: string;
@@ -48,8 +48,8 @@ export interface UpdateServiceRequestData {
   description?: string;
   category?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  budget_min?: number;
-  budget_max?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   deadline?: string;
   location?: string;
   requirements?: string;
@@ -66,15 +66,15 @@ export interface ServiceRequestFilters {
 
 export interface Quotation {
   id: string;
-  service_request_id: string;
-  supplier_id: string;
+  serviceRequestId: string;
+  supplierId: string;
   amount: number;
   description?: string;
   estimated_duration?: string;
   terms_conditions?: string;
   status: 'pending' | 'accepted' | 'rejected' | 'expired';
   valid_until?: string;
-  created_at: string;
+  createdAt: string;
   supplier_name?: string;
   supplier_company?: string;
 }

@@ -18,9 +18,9 @@ export const createServiceRequest = async (
   const id = crypto.randomUUID();
 
   const result = await pool.query(
-    `INSERT INTO service_requests (
-      id, client_id, title, description, category, priority,
-      budget_min, budget_max, deadline, location, requirements
+    `INSERT INTO "serviceRequests" (
+      "id", "clientId", "title", "description", "category", "priority",
+      "budgetMin", "budgetMax", "deadline", "location", "requirements"
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *`,
     [
@@ -30,8 +30,8 @@ export const createServiceRequest = async (
       data.description,
       data.category,
       data.priority || 'medium',
-      data.budget_min || null,
-      data.budget_max || null,
+      data.budgetMin || null,
+      data.budgetMax || null,
       data.deadline || null,
       data.location || null,
       data.requirements || null,
@@ -46,7 +46,7 @@ export const getServiceRequestById = async (
   clientId: string
 ): Promise<ServiceRequest | null> => {
   const result = await pool.query(
-    'SELECT * FROM service_requests WHERE id = $1 AND client_id = $2',
+    'SELECT * FROM "serviceRequests" WHERE "id" = $1 AND "clientId" = $2',
     [requestId, clientId]
   );
 
@@ -63,52 +63,52 @@ export const getClientServiceRequests = async (
 
   let query = `
     SELECT sr.*,
-           COUNT(q.id) as quotation_count
-    FROM service_requests sr
-    LEFT JOIN quotations q ON sr.id = q.service_request_id
-    WHERE sr.client_id = $1
+           COUNT(q."id") as "quotationCount"
+    FROM "serviceRequests" sr
+    LEFT JOIN quotations q ON sr."id" = q."serviceRequestId"
+    WHERE sr."clientId" = $1
   `;
 
   const params: any[] = [clientId];
   let paramCount = 1;
 
   if (filters.status) {
-    query += ` AND sr.status = $${++paramCount}`;
+    query += ` AND sr."status" = $${++paramCount}`;
     params.push(filters.status);
   }
 
   if (filters.category) {
-    query += ` AND sr.category = $${++paramCount}`;
+    query += ` AND sr."category" = $${++paramCount}`;
     params.push(filters.category);
   }
 
   if (filters.priority) {
-    query += ` AND sr.priority = $${++paramCount}`;
+    query += ` AND sr."priority" = $${++paramCount}`;
     params.push(filters.priority);
   }
 
-  query += ` GROUP BY sr.id ORDER BY sr.created_at DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
+  query += ` GROUP BY sr."id" ORDER BY sr."createdAt" DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
   params.push(limit, offset);
 
   const result = await pool.query(query, params);
 
   // Get total count for pagination
-  let countQuery = 'SELECT COUNT(*) FROM service_requests WHERE client_id = $1';
+  let countQuery = 'SELECT COUNT(*) FROM "serviceRequests" WHERE "clientId" = $1';
   const countParams: any[] = [clientId];
   let countParamIndex = 1;
 
   if (filters.status) {
-    countQuery += ` AND status = $${++countParamIndex}`;
+    countQuery += ` AND "status" = $${++countParamIndex}`;
     countParams.push(filters.status);
   }
 
   if (filters.category) {
-    countQuery += ` AND category = $${++countParamIndex}`;
+    countQuery += ` AND "category" = $${++countParamIndex}`;
     countParams.push(filters.category);
   }
 
   if (filters.priority) {
-    countQuery += ` AND priority = $${++countParamIndex}`;
+    countQuery += ` AND "priority" = $${++countParamIndex}`;
     countParams.push(filters.priority);
   }
 
@@ -137,7 +137,7 @@ export const updateServiceRequest = async (
 
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined) {
-      fields.push(`${key} = $${++paramCount}`);
+      fields.push(`"${key}" = $${++paramCount}`);
       values.push(value);
     }
   });
@@ -146,12 +146,12 @@ export const updateServiceRequest = async (
     throw new Error('No fields to update');
   }
 
-  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  fields.push(`"updatedAt" = CURRENT_TIMESTAMP`);
 
   const query = `
-    UPDATE service_requests
+    UPDATE "serviceRequests"
     SET ${fields.join(', ')}
-    WHERE id = $${++paramCount} AND client_id = $${++paramCount}
+    WHERE "id" = $${++paramCount} AND "clientId" = $${++paramCount}
     RETURNING *
   `;
 
@@ -166,7 +166,7 @@ export const deleteServiceRequest = async (
   clientId: string
 ): Promise<boolean> => {
   const result = await pool.query(
-    'DELETE FROM service_requests WHERE id = $1 AND client_id = $2',
+    'DELETE FROM "serviceRequests" WHERE "id" = $1 AND "clientId" = $2',
     [requestId, clientId]
   );
 
@@ -186,13 +186,13 @@ export const getServiceRequestWithQuotations = async (
   // Get quotations for this request
   const quotationsResult = await pool.query(
     `SELECT q.*,
-            u.first_name || ' ' || u.last_name as supplier_name,
-            sp.company_name as supplier_company
+            u."firstName" || ' ' || u."lastName" as "supplierName",
+            sp."companyName" as "supplierCompany"
      FROM quotations q
-     JOIN users u ON q.supplier_id = u.id
-     LEFT JOIN supplier_profiles sp ON u.id = sp.user_id
-     WHERE q.service_request_id = $1
-     ORDER BY q.created_at DESC`,
+     JOIN users u ON q."supplierId" = u."id"
+     LEFT JOIN "supplierProfiles" sp ON u."id" = sp."userId"
+     WHERE q."serviceRequestId" = $1
+     ORDER BY q."createdAt" DESC`,
     [requestId]
   );
 
@@ -204,7 +204,7 @@ export const getServiceRequestWithQuotations = async (
 
 export const getClientProfile = async (userId: string): Promise<ClientProfile | null> => {
   const result = await pool.query(
-    'SELECT * FROM client_profiles WHERE user_id = $1',
+    'SELECT * FROM "clientProfiles" WHERE "userId" = $1',
     [userId]
   );
 
@@ -224,8 +224,8 @@ export const updateClientProfile = async (
     let paramCount = 0;
 
     Object.entries(profileData).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id' && key !== 'user_id' && key !== 'created_at') {
-        fields.push(`${key} = $${++paramCount}`);
+      if (value !== undefined && key !== 'id' && key !== 'userId' && key !== 'createdAt') {
+        fields.push(`"${key}" = $${++paramCount}`);
         values.push(value);
       }
     });
@@ -235,9 +235,9 @@ export const updateClientProfile = async (
     }
 
     const query = `
-      UPDATE client_profiles
+      UPDATE "clientProfiles"
       SET ${fields.join(', ')}
-      WHERE user_id = $${++paramCount}
+      WHERE "userId" = $${++paramCount}
       RETURNING *
     `;
 
@@ -249,22 +249,22 @@ export const updateClientProfile = async (
     // Create new profile
     const profileId = crypto.randomUUID();
     const result = await pool.query(
-      `INSERT INTO client_profiles (
-        id, user_id, company_name, industry, company_size,
-        address, city, country, website, business_license
+      `INSERT INTO "clientProfiles" (
+        "id", "userId", "companyName", "industry", "companySize",
+        "address", "city", "country", "website", "businessLicense"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         profileId,
         userId,
-        profileData.company_name || null,
+        profileData.companyName || null,
         profileData.industry || null,
-        profileData.company_size || null,
+        profileData.companySize || null,
         profileData.address || null,
         profileData.city || null,
         profileData.country || null,
         profileData.website || null,
-        profileData.business_license || null,
+        profileData.businessLicense || null,
       ]
     );
 

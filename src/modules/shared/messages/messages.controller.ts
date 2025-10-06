@@ -284,6 +284,237 @@ export class MessagesController {
   };
 
   /**
+   * Edit a message
+   */
+  editMessage = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'User not authenticated'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const { messageId } = req.params;
+      const { content } = req.body;
+
+      if (!messageId) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Message ID is required'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (!content || !content.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Content is required'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const message = await this.messagesService.editMessage(messageId, userId, content.trim());
+
+      if (!message) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'MESSAGE_NOT_FOUND',
+            message: 'Message not found'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.json({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+
+      if (error.message?.includes('Unauthorized')) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: error.message
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to edit message'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  /**
+   * Delete a message
+   */
+  deleteMessage = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'User not authenticated'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const { messageId } = req.params;
+
+      if (!messageId) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Message ID is required'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      await this.messagesService.deleteMessage(messageId, userId);
+
+      res.json({
+        success: true,
+        message: 'Message deleted successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error deleting message:', error);
+
+      if (error.message?.includes('Unauthorized')) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: error.message
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (error.message?.includes('not found')) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'MESSAGE_NOT_FOUND',
+            message: 'Message not found'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to delete message'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  /**
+   * Delete a conversation
+   */
+  deleteConversation = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'User not authenticated'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Conversation ID is required'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      await this.messagesService.deleteConversation(conversationId, userId);
+
+      res.json({
+        success: true,
+        message: 'Conversation deleted successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error deleting conversation:', error);
+
+      if (error.message?.includes('Unauthorized')) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: error.message
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (error.message?.includes('not found')) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'CONVERSATION_NOT_FOUND',
+            message: 'Conversation not found'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to delete conversation'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  /**
    * Get or create conversation with a specific user
    */
   getOrCreateConversation = async (req: AuthenticatedRequest, res: Response) => {

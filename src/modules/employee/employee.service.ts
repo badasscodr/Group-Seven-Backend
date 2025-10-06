@@ -7,11 +7,11 @@ export const clockIn = async (employeeId: string): Promise<AttendanceRecord> => 
 
   // Check if already clocked in today
   const existingRecord = await pool.query(
-    'SELECT * FROM attendance_records WHERE employee_id = $1 AND date = $2',
+    'SELECT * FROM attendance WHERE "employeeId" = $1 AND "date" = $2',
     [employeeId, today]
   );
 
-  if (existingRecord.rows.length > 0 && existingRecord.rows[0].clock_in_time) {
+  if (existingRecord.rows.length > 0 && existingRecord.rows[0].checkIn) {
     throw new Error('Already clocked in today');
   }
 
@@ -20,9 +20,9 @@ export const clockIn = async (employeeId: string): Promise<AttendanceRecord> => 
   if (existingRecord.rows.length > 0) {
     // Update existing record
     const result = await pool.query(
-      `UPDATE attendance_records
-       SET clock_in_time = $1, status = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE employee_id = $3 AND date = $4
+      `UPDATE attendance
+       SET "checkIn" = $1, "status" = $2, "updatedAt" = CURRENT_TIMESTAMP
+       WHERE "employeeId" = $3 AND "date" = $4
        RETURNING *`,
       [clockInTime, 'present', employeeId, today]
     );
@@ -30,7 +30,7 @@ export const clockIn = async (employeeId: string): Promise<AttendanceRecord> => 
   } else {
     // Create new record
     const result = await pool.query(
-      `INSERT INTO attendance_records (employee_id, date, clock_in_time, status)
+      `INSERT INTO attendance ("employeeId", "date", "checkIn", "status")
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [employeeId, today, clockInTime, 'present']
     );
@@ -42,26 +42,26 @@ export const clockOut = async (employeeId: string): Promise<AttendanceRecord> =>
   const today = new Date().toISOString().split('T')[0];
 
   const existingRecord = await pool.query(
-    'SELECT * FROM attendance_records WHERE employee_id = $1 AND date = $2',
+    'SELECT * FROM attendance WHERE "employeeId" = $1 AND "date" = $2',
     [employeeId, today]
   );
 
-  if (existingRecord.rows.length === 0 || !existingRecord.rows[0].clock_in_time) {
+  if (existingRecord.rows.length === 0 || !existingRecord.rows[0].checkIn) {
     throw new Error('Must clock in before clocking out');
   }
 
-  if (existingRecord.rows[0].clock_out_time) {
+  if (existingRecord.rows[0].checkOut) {
     throw new Error('Already clocked out today');
   }
 
   const clockOutTime = new Date();
-  const clockInTime = new Date(existingRecord.rows[0].clock_in_time);
+  const clockInTime = new Date(existingRecord.rows[0].checkIn);
   const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
 
   const result = await pool.query(
-    `UPDATE attendance_records
-     SET clock_out_time = $1, total_hours = $2, updated_at = CURRENT_TIMESTAMP
-     WHERE employee_id = $3 AND date = $4
+    `UPDATE attendance
+     SET "checkOut" = $1, "totalHours" = $2, "updatedAt" = CURRENT_TIMESTAMP
+     WHERE "employeeId" = $3 AND "date" = $4
      RETURNING *`,
     [clockOutTime, totalHours, employeeId, today]
   );
@@ -76,22 +76,22 @@ export const getAttendanceRecords = async (
   limit: number = 30
 ): Promise<AttendanceRecord[]> => {
   let query = `
-    SELECT * FROM attendance_records
-    WHERE employee_id = $1
+    SELECT * FROM attendance
+    WHERE "employeeId" = $1
   `;
   const params: any[] = [employeeId];
 
   if (startDate) {
-    query += ` AND date >= $${params.length + 1}`;
+    query += ` AND "date" >= $${params.length + 1}`;
     params.push(startDate);
   }
 
   if (endDate) {
-    query += ` AND date <= $${params.length + 1}`;
+    query += ` AND "date" <= $${params.length + 1}`;
     params.push(endDate);
   }
 
-  query += ` ORDER BY date DESC LIMIT $${params.length + 1}`;
+  query += ` ORDER BY "date" DESC LIMIT $${params.length + 1}`;
   params.push(limit);
 
   const result = await pool.query(query, params);
@@ -102,7 +102,7 @@ export const getTodayAttendance = async (employeeId: string): Promise<Attendance
   const today = new Date().toISOString().split('T')[0];
 
   const result = await pool.query(
-    'SELECT * FROM attendance_records WHERE employee_id = $1 AND date = $2',
+    'SELECT * FROM attendance WHERE "employeeId" = $1 AND "date" = $2',
     [employeeId, today]
   );
 
@@ -113,24 +113,24 @@ export const getTodayAttendance = async (employeeId: string): Promise<Attendance
 export const submitLeaveRequest = async (
   employeeId: string,
   leaveData: {
-    leave_type: string;
-    start_date: string;
-    end_date: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
     reason: string;
   }
 ): Promise<LeaveRequest> => {
-  const { leave_type, start_date, end_date, reason } = leaveData;
+  const { leaveType, startDate, endDate, reason } = leaveData;
 
   // Calculate days requested
-  const startDateObj = new Date(start_date);
-  const endDateObj = new Date(end_date);
+  const startDateObj = new Date(startDate);
+  const endDateObj = new Date(endDate);
   const timeDiff = endDateObj.getTime() - startDateObj.getTime();
   const daysRequested = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
 
   const result = await pool.query(
-    `INSERT INTO leave_requests (employee_id, leave_type, start_date, end_date, days_requested, reason, status)
+    `INSERT INTO "leaveRequests" ("employeeId", "leaveType", "startDate", "endDate", "daysRequested", "reason", "status")
      VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,
-    [employeeId, leave_type, start_date, end_date, daysRequested, reason]
+    [employeeId, leaveType, startDate, endDate, daysRequested, reason]
   );
 
   return result.rows[0];
@@ -138,7 +138,7 @@ export const submitLeaveRequest = async (
 
 export const getLeaveRequests = async (employeeId: string): Promise<LeaveRequest[]> => {
   const result = await pool.query(
-    'SELECT * FROM leave_requests WHERE employee_id = $1 ORDER BY created_at DESC',
+    'SELECT * FROM "leaveRequests" WHERE "employeeId" = $1 ORDER BY "createdAt" DESC',
     [employeeId]
   );
 
@@ -152,9 +152,9 @@ export const updateLeaveRequestStatus = async (
   rejectionReason?: string
 ): Promise<LeaveRequest> => {
   const result = await pool.query(
-    `UPDATE leave_requests
-     SET status = $1, approved_by = $2, approved_at = CURRENT_TIMESTAMP, rejection_reason = $3, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $4 RETURNING *`,
+    `UPDATE "leaveRequests"
+     SET "status" = $1, "approvedBy" = $2, "approvedAt" = CURRENT_TIMESTAMP, "rejectionReason" = $3, "updatedAt" = CURRENT_TIMESTAMP
+     WHERE "id" = $4 RETURNING *`,
     [status, approvedBy, rejectionReason || null, requestId]
   );
 
@@ -168,7 +168,7 @@ export const updateLeaveRequestStatus = async (
 // Employee Profile
 export const getEmployeeProfile = async (userId: string): Promise<EmployeeProfile | null> => {
   const result = await pool.query(
-    'SELECT * FROM employee_profiles WHERE user_id = $1',
+    'SELECT * FROM "employeeProfiles" WHERE "userId" = $1',
     [userId]
   );
 
@@ -178,20 +178,20 @@ export const getEmployeeProfile = async (userId: string): Promise<EmployeeProfil
 export const createEmployeeProfile = async (
   userId: string,
   profileData: {
-    employee_id: string;
+  employeeId: string;
     department: string;
     position: string;
-    hire_date: string;
+  hireDate: string;
     salary?: number;
-    manager_id?: string;
+    managerId?: string;
   }
 ): Promise<EmployeeProfile> => {
-  const { employee_id, department, position, hire_date, salary, manager_id } = profileData;
+  const { employeeId, department, position, hireDate, salary, managerId } = profileData;
 
   const result = await pool.query(
-    `INSERT INTO employee_profiles (user_id, employee_id, department, position, hire_date, salary, manager_id)
+    `INSERT INTO "employeeProfiles" ("userId", "employeeId", "department", "position", "hireDate", "salary", "managerId")
      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [userId, employee_id, department, position, hire_date, salary || null, manager_id || null]
+    [userId, employeeId, department, position, hireDate, salary || null, managerId || null]
   );
 
   return result.rows[0];
@@ -203,18 +203,18 @@ export const getAllEmployeeAttendance = async (date?: string): Promise<Attendanc
 
   const result = await pool.query(
     `SELECT
-       ar.employee_id,
-       u.first_name || ' ' || u.last_name as employee_name,
-       ar.date,
-       ar.clock_in_time,
-       ar.clock_out_time,
-       ar.total_hours,
-       ar.status
-     FROM attendance_records ar
-     JOIN employee_profiles ep ON ar.employee_id = ep.user_id
-     JOIN users u ON ep.user_id = u.id
-     WHERE ar.date = $1
-     ORDER BY ar.clock_in_time ASC`,
+       ar."employeeId",
+       u."firstName" || ' ' || u."lastName" as "employeeName",
+       ar."date",
+       ar."checkIn",
+       ar."checkOut",
+       ar."totalHours",
+       ar."status"
+     FROM attendance ar
+     JOIN "employeeProfiles" ep ON ar."employeeId" = ep."userId"
+     JOIN users u ON ep."userId" = u."id"
+     WHERE ar."date" = $1
+     ORDER BY ar."checkIn" ASC`,
     [targetDate]
   );
 
@@ -225,13 +225,13 @@ export const getAllLeaveRequests = async (): Promise<LeaveRequest[]> => {
   const result = await pool.query(
     `SELECT
        lr.*,
-       u.first_name || ' ' || u.last_name as employee_name,
-       ep.department,
-       ep.position
-     FROM leave_requests lr
-     JOIN employee_profiles ep ON lr.employee_id = ep.user_id
-     JOIN users u ON ep.user_id = u.id
-     ORDER BY lr.created_at DESC`
+       u."firstName" || ' ' || u."lastName" as "employeeName",
+       ep."department",
+       ep."position"
+     FROM "leaveRequests" lr
+     JOIN "employeeProfiles" ep ON lr."employeeId" = ep."userId"
+     JOIN users u ON ep."userId" = u."id"
+     ORDER BY lr."createdAt" DESC`
   );
 
   return result.rows;
@@ -244,34 +244,34 @@ export const getAttendanceSummary = async (
 ): Promise<AttendanceSummary[]> => {
   let query = `
     SELECT
-      employee_id,
-      COUNT(*) as total_days,
-      COUNT(CASE WHEN status = 'present' THEN 1 END) as present_days,
-      COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent_days,
-      COUNT(CASE WHEN status = 'late' THEN 1 END) as late_days,
-      COALESCE(SUM(total_hours), 0) as total_hours,
-      COALESCE(AVG(total_hours), 0) as average_hours_per_day
-    FROM attendance_records
+      "employeeId",
+      COUNT(*) as "totalDays",
+      COUNT(CASE WHEN "status" = 'present' THEN 1 END) as "presentDays",
+      COUNT(CASE WHEN "status" = 'absent' THEN 1 END) as "absentDays",
+      COUNT(CASE WHEN "status" = 'late' THEN 1 END) as "lateDays",
+      COALESCE(SUM("totalHours"), 0) as "totalHours",
+      COALESCE(AVG("totalHours"), 0) as "averageHoursPerDay"
+    FROM attendance
     WHERE 1=1
   `;
   const params: any[] = [];
 
   if (employeeId) {
-    query += ` AND employee_id = $${params.length + 1}`;
+    query += ` AND "employeeId" = $${params.length + 1}`;
     params.push(employeeId);
   }
 
   if (startDate) {
-    query += ` AND date >= $${params.length + 1}`;
+    query += ` AND "date" >= $${params.length + 1}`;
     params.push(startDate);
   }
 
   if (endDate) {
-    query += ` AND date <= $${params.length + 1}`;
+    query += ` AND "date" <= $${params.length + 1}`;
     params.push(endDate);
   }
 
-  query += ` GROUP BY employee_id`;
+  query += ` GROUP BY "employeeId"`;
 
   const result = await pool.query(query, params);
   return result.rows;

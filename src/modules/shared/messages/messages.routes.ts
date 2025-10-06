@@ -203,4 +203,99 @@ router.post('/', authenticate, messagesController.sendMessage);
  */
 router.get('/users/search', authenticate, messagesController.searchUsers);
 
+/**
+ * @swagger
+ * /api/messages/{messageId}:
+ *   put:
+ *     summary: Edit a message
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: messageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Message ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: New message content
+ *     responses:
+ *       200:
+ *         description: Message updated successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - can only edit own messages
+ *       404:
+ *         description: Message not found
+ */
+router.put('/:messageId', authenticate, messagesController.editMessage);
+
+/**
+ * @swagger
+ * /api/messages/{messageId}:
+ *   delete:
+ *     summary: Delete a message
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: messageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Message ID
+ *     responses:
+ *       200:
+ *         description: Message deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - can only delete own messages
+ *       404:
+ *         description: Message not found
+ */
+router.delete('/:messageId', authenticate, messagesController.deleteMessage);
+
+/**
+ * @swagger
+ * /api/messages/conversations/{conversationId}:
+ *   delete:
+ *     summary: Delete a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Conversation ID
+ *     responses:
+ *       200:
+ *         description: Conversation deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - must be a participant
+ *       404:
+ *         description: Conversation not found
+ */
+router.delete('/conversations/:conversationId', authenticate, messagesController.deleteConversation);
+
 export default router;

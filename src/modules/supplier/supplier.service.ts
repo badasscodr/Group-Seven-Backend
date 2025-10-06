@@ -20,75 +20,75 @@ export const getAvailableServiceRequests = async (
 
   let query = `
     SELECT sr.*,
-           u.first_name || ' ' || u.last_name as client_name,
-           cp.company_name as client_company,
-           COUNT(q.id) as quotation_count,
+           u."firstName" || ' ' || u."lastName" as "clientName",
+           cp."companyName" as "clientCompany",
+           COUNT(q."id") as "quotationCount",
            CASE WHEN EXISTS (
              SELECT 1 FROM quotations
-             WHERE service_request_id = sr.id AND supplier_id = $1
-           ) THEN true ELSE false END as has_quoted
-    FROM service_requests sr
-    JOIN users u ON sr.client_id = u.id
-    LEFT JOIN client_profiles cp ON u.id = cp.user_id
-    LEFT JOIN quotations q ON sr.id = q.service_request_id
-    WHERE sr.status = 'published'
+             WHERE "serviceRequestId" = sr."id" AND "supplierId" = $1
+           ) THEN true ELSE false END as "hasQuoted"
+    FROM "serviceRequests" sr
+    JOIN users u ON sr."clientId" = u."id"
+    LEFT JOIN "clientProfiles" cp ON u."id" = cp."userId"
+    LEFT JOIN quotations q ON sr."id" = q."serviceRequestId"
+    WHERE sr."status" = 'published'
   `;
 
   const params: any[] = [supplierId];
   let paramCount = 1;
 
   if (filters.category) {
-    query += ` AND sr.category = $${++paramCount}`;
+    query += ` AND sr."category" = $${++paramCount}`;
     params.push(filters.category);
   }
 
   if (filters.priority) {
-    query += ` AND sr.priority = $${++paramCount}`;
+    query += ` AND sr."priority" = $${++paramCount}`;
     params.push(filters.priority);
   }
 
-  if (filters.budget_min) {
-    query += ` AND (sr.budget_min IS NULL OR sr.budget_min >= $${++paramCount})`;
-    params.push(filters.budget_min);
+  if (filters.budgetMin) {
+    query += ` AND (sr."budgetMin" IS NULL OR sr."budgetMin" >= $${++paramCount})`;
+    params.push(filters.budgetMin);
   }
 
-  if (filters.budget_max) {
-    query += ` AND (sr.budget_max IS NULL OR sr.budget_max <= $${++paramCount})`;
-    params.push(filters.budget_max);
+  if (filters.budgetMax) {
+    query += ` AND (sr."budgetMax" IS NULL OR sr."budgetMax" <= $${++paramCount})`;
+    params.push(filters.budgetMax);
   }
 
-  query += ` GROUP BY sr.id, u.first_name, u.last_name, cp.company_name
-             ORDER BY sr.created_at DESC
+  query += ` GROUP BY sr."id", u."firstName", u."lastName", cp."companyName"
+             ORDER BY sr."createdAt" DESC
              LIMIT $${++paramCount} OFFSET $${++paramCount}`;
   params.push(limit, offset);
 
   const result = await pool.query(query, params);
 
   // Get total count for pagination
-  let countQuery = `SELECT COUNT(DISTINCT sr.id)
-                    FROM service_requests sr
-                    WHERE sr.status = 'published'`;
+  let countQuery = `SELECT COUNT(DISTINCT sr."id")
+                    FROM "serviceRequests" sr
+                    WHERE sr."status" = 'published'`;
   const countParams: any[] = [];
   let countParamIndex = 0;
 
   if (filters.category) {
-    countQuery += ` AND sr.category = $${++countParamIndex}`;
+    countQuery += ` AND sr."category" = $${++countParamIndex}`;
     countParams.push(filters.category);
   }
 
   if (filters.priority) {
-    countQuery += ` AND sr.priority = $${++countParamIndex}`;
+    countQuery += ` AND sr."priority" = $${++countParamIndex}`;
     countParams.push(filters.priority);
   }
 
-  if (filters.budget_min) {
-    countQuery += ` AND (sr.budget_min IS NULL OR sr.budget_min >= $${++countParamIndex})`;
-    countParams.push(filters.budget_min);
+  if (filters.budgetMin) {
+    countQuery += ` AND (sr."budgetMin" IS NULL OR sr."budgetMin" >= $${++countParamIndex})`;
+    countParams.push(filters.budgetMin);
   }
 
-  if (filters.budget_max) {
-    countQuery += ` AND (sr.budget_max IS NULL OR sr.budget_max <= $${++countParamIndex})`;
-    countParams.push(filters.budget_max);
+  if (filters.budgetMax) {
+    countQuery += ` AND (sr."budgetMax" IS NULL OR sr."budgetMax" <= $${++countParamIndex})`;
+    countParams.push(filters.budgetMax);
   }
 
   const countResult = await pool.query(countQuery, countParams);
@@ -112,7 +112,7 @@ export const createQuotation = async (
 ): Promise<Quotation> => {
   // Check if service request exists and is published
   const serviceRequestCheck = await pool.query(
-    'SELECT id, status FROM service_requests WHERE id = $1',
+    'SELECT "id", "status" FROM "serviceRequests" WHERE "id" = $1',
     [serviceRequestId]
   );
 
@@ -126,7 +126,7 @@ export const createQuotation = async (
 
   // Check if supplier already has a quotation for this request
   const existingQuotation = await pool.query(
-    'SELECT id FROM quotations WHERE service_request_id = $1 AND supplier_id = $2',
+    'SELECT "id" FROM quotations WHERE "serviceRequestId" = $1 AND "supplierId" = $2',
     [serviceRequestId, supplierId]
   );
 
@@ -138,8 +138,8 @@ export const createQuotation = async (
 
   const result = await pool.query(
     `INSERT INTO quotations (
-      id, service_request_id, supplier_id, amount, description,
-      estimated_duration, terms_conditions, valid_until
+      "id", "serviceRequestId", "supplierId", "amount", "description",
+      "estimatedDuration", "termsConditions", "validUntil"
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`,
     [
@@ -167,38 +167,38 @@ export const getSupplierQuotations = async (
 
   let query = `
     SELECT q.*,
-           sr.title as request_title,
-           sr.category as request_category,
-           sr.status as request_status,
-           u.first_name || ' ' || u.last_name as client_name,
-           cp.company_name as client_company
+           sr."title" as "requestTitle",
+           sr."category" as "requestCategory",
+           sr."status" as "requestStatus",
+           u."firstName" || ' ' || u."lastName" as "clientName",
+           cp."companyName" as "clientCompany"
     FROM quotations q
-    JOIN service_requests sr ON q.service_request_id = sr.id
-    JOIN users u ON sr.client_id = u.id
-    LEFT JOIN client_profiles cp ON u.id = cp.user_id
-    WHERE q.supplier_id = $1
+    JOIN "serviceRequests" sr ON q."serviceRequestId" = sr."id"
+    JOIN users u ON sr."clientId" = u."id"
+    LEFT JOIN "clientProfiles" cp ON u."id" = cp."userId"
+    WHERE q."supplierId" = $1
   `;
 
   const params: any[] = [supplierId];
   let paramCount = 1;
 
   if (filters.status) {
-    query += ` AND q.status = $${++paramCount}`;
+    query += ` AND q."status" = $${++paramCount}`;
     params.push(filters.status);
   }
 
-  query += ` ORDER BY q.created_at DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
+  query += ` ORDER BY q."createdAt" DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
   params.push(limit, offset);
 
   const result = await pool.query(query, params);
 
   // Get total count for pagination
-  let countQuery = 'SELECT COUNT(*) FROM quotations WHERE supplier_id = $1';
+  let countQuery = 'SELECT COUNT(*) FROM quotations WHERE "supplierId" = $1';
   const countParams: any[] = [supplierId];
   let countParamIndex = 1;
 
   if (filters.status) {
-    countQuery += ` AND status = $${++countParamIndex}`;
+    countQuery += ` AND "status" = $${++countParamIndex}`;
     countParams.push(filters.status);
   }
 
@@ -223,7 +223,7 @@ export const updateQuotation = async (
 ): Promise<Quotation | null> => {
   // Check if quotation exists and belongs to supplier
   const existingQuotation = await pool.query(
-    'SELECT id, status FROM quotations WHERE id = $1 AND supplier_id = $2',
+    'SELECT "id", "status" FROM quotations WHERE "id" = $1 AND "supplierId" = $2',
     [quotationId, supplierId]
   );
 
@@ -242,7 +242,7 @@ export const updateQuotation = async (
 
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined) {
-      fields.push(`${key} = $${++paramCount}`);
+      fields.push(`"${key}" = $${++paramCount}`);
       values.push(value);
     }
   });
@@ -254,7 +254,7 @@ export const updateQuotation = async (
   const query = `
     UPDATE quotations
     SET ${fields.join(', ')}
-    WHERE id = $${++paramCount} AND supplier_id = $${++paramCount}
+    WHERE "id" = $${++paramCount} AND "supplierId" = $${++paramCount}
     RETURNING *
   `;
 
@@ -270,17 +270,17 @@ export const getQuotationById = async (
 ): Promise<any | null> => {
   const result = await pool.query(
     `SELECT q.*,
-            sr.title as request_title,
-            sr.description as request_description,
-            sr.category as request_category,
-            sr.status as request_status,
-            u.first_name || ' ' || u.last_name as client_name,
-            cp.company_name as client_company
+            sr."title" as "requestTitle",
+            sr."description" as "requestDescription",
+            sr."category" as "requestCategory",
+            sr."status" as "requestStatus",
+            u."firstName" || ' ' || u."lastName" as "clientName",
+            cp."companyName" as "clientCompany"
      FROM quotations q
-     JOIN service_requests sr ON q.service_request_id = sr.id
-     JOIN users u ON sr.client_id = u.id
-     LEFT JOIN client_profiles cp ON u.id = cp.user_id
-     WHERE q.id = $1 AND q.supplier_id = $2`,
+     JOIN "serviceRequests" sr ON q."serviceRequestId" = sr."id"
+     JOIN users u ON sr."clientId" = u."id"
+     LEFT JOIN "clientProfiles" cp ON u."id" = cp."userId"
+     WHERE q."id" = $1 AND q."supplierId" = $2`,
     [quotationId, supplierId]
   );
 
@@ -289,7 +289,7 @@ export const getQuotationById = async (
 
 export const getSupplierProfile = async (userId: string): Promise<SupplierProfile | null> => {
   const result = await pool.query(
-    'SELECT * FROM supplier_profiles WHERE user_id = $1',
+    'SELECT * FROM "supplierProfiles" WHERE "userId" = $1',
     [userId]
   );
 
@@ -309,8 +309,8 @@ export const updateSupplierProfile = async (
     let paramCount = 0;
 
     Object.entries(profileData).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id' && key !== 'user_id' && key !== 'created_at') {
-        fields.push(`${key} = $${++paramCount}`);
+      if (value !== undefined && key !== 'id' && key !== 'userId' && key !== 'createdAt') {
+        fields.push(`"${key}" = $${++paramCount}`);
         values.push(value);
       }
     });
@@ -320,9 +320,9 @@ export const updateSupplierProfile = async (
     }
 
     const query = `
-      UPDATE supplier_profiles
+      UPDATE "supplierProfiles"
       SET ${fields.join(', ')}
-      WHERE user_id = $${++paramCount}
+      WHERE "userId" = $${++paramCount}
       RETURNING *
     `;
 
@@ -334,21 +334,21 @@ export const updateSupplierProfile = async (
     // Create new profile
     const profileId = crypto.randomUUID();
     const result = await pool.query(
-      `INSERT INTO supplier_profiles (
-        id, user_id, company_name, business_type, license_number,
-        service_categories, rating, total_reviews, is_verified
+      `INSERT INTO "supplierProfiles" (
+        "id", "userId", "companyName", "businessType", "licenseNumber",
+        "serviceCategories", "rating", "totalReviews", "isVerified"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *`,
       [
         profileId,
         userId,
-        profileData.company_name || '',
-        profileData.business_type || null,
-        profileData.license_number || null,
-        profileData.service_categories || [],
+        profileData.companyName || '',
+        profileData.businessType || null,
+        profileData.licenseNumber || null,
+        profileData.serviceCategories || [],
         profileData.rating || 0.00,
-        profileData.total_reviews || 0,
-        profileData.is_verified || false,
+        profileData.totalReviews || 0,
+        profileData.isVerified || false,
       ]
     );
 
@@ -358,7 +358,7 @@ export const updateSupplierProfile = async (
 
 export const getServiceCategories = async (): Promise<any[]> => {
   const result = await pool.query(
-    'SELECT * FROM service_categories WHERE is_active = true ORDER BY name'
+    'SELECT * FROM "serviceCategories" WHERE "isActive" = true ORDER BY "name"'
   );
   return result.rows;
 };

@@ -13,7 +13,7 @@ export const getUserById = async (userId: string) => {
     return null;
   }
 
-  const { password_hash, ...userWithoutPassword } = result.rows[0];
+  const { passwordHash, ...userWithoutPassword } = result.rows[0];
   return userWithoutPassword;
 };
 
@@ -25,10 +25,10 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
   }
 
   // Generate presigned URL for avatar if it exists (like documents do)
-  if (user.avatar_url) {
+  if (user.avatarUrl) {
     try {
-      const presignedUrl = await generateDownloadUrl(user.avatar_url, 604800); // 7 days
-      user.avatar_url = presignedUrl;
+      const presignedUrl = await generateDownloadUrl(user.avatarUrl, 604800); // 7 days
+      user.avatarUrl = presignedUrl;
     } catch (error) {
       console.error('Failed to generate presigned URL for avatar:', error);
     }
@@ -39,7 +39,7 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
   switch (role) {
     case 'client':
       const clientResult = await pool.query(
-        'SELECT * FROM client_profiles WHERE user_id = $1',
+        'SELECT * FROM "clientProfiles" WHERE "userId" = $1',
         [userId]
       );
       profile = clientResult.rows[0] || null;
@@ -47,7 +47,7 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
 
     case 'supplier':
       const supplierResult = await pool.query(
-        'SELECT * FROM supplier_profiles WHERE user_id = $1',
+        'SELECT * FROM "supplierProfiles" WHERE "userId" = $1',
         [userId]
       );
       profile = supplierResult.rows[0] || null;
@@ -55,7 +55,7 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
 
     case 'employee':
       const employeeResult = await pool.query(
-        'SELECT * FROM employee_profiles WHERE user_id = $1',
+        'SELECT * FROM "employeeProfiles" WHERE "userId" = $1',
         [userId]
       );
       profile = employeeResult.rows[0] || null;
@@ -63,7 +63,7 @@ export const getUserProfile = async (userId: string, role: UserRole): Promise<Us
 
     case 'candidate':
       const candidateResult = await pool.query(
-        'SELECT * FROM candidate_profiles WHERE user_id = $1',
+        'SELECT * FROM "candidateProfiles" WHERE "userId" = $1',
         [userId]
       );
       profile = candidateResult.rows[0] || null;
@@ -88,13 +88,13 @@ export const updateUserProfile = async (userId: string, role: UserRole, updateDa
     let paramIndex = 1;
 
     if (updateData.firstName !== undefined) {
-      userUpdateFields.push(`first_name = $${paramIndex}`);
+      userUpdateFields.push(`"firstName" = $${paramIndex}`);
       userUpdateValues.push(updateData.firstName);
       paramIndex++;
     }
 
     if (updateData.lastName !== undefined) {
-      userUpdateFields.push(`last_name = $${paramIndex}`);
+      userUpdateFields.push(`"lastName" = $${paramIndex}`);
       userUpdateValues.push(updateData.lastName);
       paramIndex++;
     }
@@ -106,7 +106,7 @@ export const updateUserProfile = async (userId: string, role: UserRole, updateDa
     }
 
     if (userUpdateFields.length > 0) {
-      userUpdateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      userUpdateFields.push(`"updatedAt" = CURRENT_TIMESTAMP`);
       userUpdateValues.push(userId);
 
       const userUpdateQuery = `
@@ -144,7 +144,7 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       let clientParamIndex = 1;
 
       if (profileData.companyName !== undefined) {
-        clientFields.push(`company_name = $${clientParamIndex}`);
+        clientFields.push(`"companyName" = $${clientParamIndex}`);
         clientValues.push(profileData.companyName);
         clientParamIndex++;
       }
@@ -155,8 +155,14 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
         clientParamIndex++;
       }
 
+      if (profileData.businessType !== undefined) {
+        clientFields.push(`"businessType" = $${clientParamIndex}`);
+        clientValues.push(profileData.businessType);
+        clientParamIndex++;
+      }
+
       if (profileData.companySize !== undefined) {
-        clientFields.push(`company_size = $${clientParamIndex}`);
+        clientFields.push(`"companySize" = $${clientParamIndex}`);
         clientValues.push(profileData.companySize);
         clientParamIndex++;
       }
@@ -188,9 +194,9 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       if (clientFields.length > 0) {
         clientValues.push(userId);
         const clientUpdateQuery = `
-          UPDATE client_profiles
+          UPDATE "clientProfiles"
           SET ${clientFields.join(', ')}
-          WHERE user_id = $${clientParamIndex}
+          WHERE "userId" = $${clientParamIndex}
         `;
         await client.query(clientUpdateQuery, clientValues);
       }
@@ -202,25 +208,25 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       let supplierParamIndex = 1;
 
       if (profileData.companyName !== undefined) {
-        supplierFields.push(`company_name = $${supplierParamIndex}`);
+        supplierFields.push(`"companyName" = $${supplierParamIndex}`);
         supplierValues.push(profileData.companyName);
         supplierParamIndex++;
       }
 
       if (profileData.businessType !== undefined) {
-        supplierFields.push(`business_type = $${supplierParamIndex}`);
+        supplierFields.push(`"businessType" = $${supplierParamIndex}`);
         supplierValues.push(profileData.businessType);
         supplierParamIndex++;
       }
 
       if (profileData.licenseNumber !== undefined) {
-        supplierFields.push(`license_number = $${supplierParamIndex}`);
+        supplierFields.push(`"licenseNumber" = $${supplierParamIndex}`);
         supplierValues.push(profileData.licenseNumber);
         supplierParamIndex++;
       }
 
       if (profileData.serviceCategories !== undefined) {
-        supplierFields.push(`service_categories = $${supplierParamIndex}`);
+        supplierFields.push(`"serviceCategories" = $${supplierParamIndex}`);
         supplierValues.push(profileData.serviceCategories);
         supplierParamIndex++;
       }
@@ -228,9 +234,9 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       if (supplierFields.length > 0) {
         supplierValues.push(userId);
         const supplierUpdateQuery = `
-          UPDATE supplier_profiles
+          UPDATE "supplierProfiles"
           SET ${supplierFields.join(', ')}
-          WHERE user_id = $${supplierParamIndex}
+          WHERE "userId" = $${supplierParamIndex}
         `;
         await client.query(supplierUpdateQuery, supplierValues);
       }
@@ -242,7 +248,7 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       let employeeParamIndex = 1;
 
       if (profileData.employeeId !== undefined) {
-        employeeFields.push(`employee_id = $${employeeParamIndex}`);
+        employeeFields.push(`"employeeId" = $${employeeParamIndex}`);
         employeeValues.push(profileData.employeeId);
         employeeParamIndex++;
       }
@@ -262,9 +268,9 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       if (employeeFields.length > 0) {
         employeeValues.push(userId);
         const employeeUpdateQuery = `
-          UPDATE employee_profiles
+          UPDATE "employeeProfiles"
           SET ${employeeFields.join(', ')}
-          WHERE user_id = $${employeeParamIndex}
+          WHERE "userId" = $${employeeParamIndex}
         `;
         await client.query(employeeUpdateQuery, employeeValues);
       }
@@ -290,9 +296,9 @@ const updateRoleSpecificProfile = async (client: any, userId: string, role: User
       if (candidateFields.length > 0) {
         candidateValues.push(userId);
         const candidateUpdateQuery = `
-          UPDATE candidate_profiles
+          UPDATE "candidateProfiles"
           SET ${candidateFields.join(', ')}
-          WHERE user_id = $${candidateParamIndex}
+          WHERE "userId" = $${candidateParamIndex}
         `;
         await client.query(candidateUpdateQuery, candidateValues);
       }
@@ -314,11 +320,11 @@ export const updateUserAvatar = async (
 
     // Get current avatar to delete old one
     const currentAvatarResult = await client.query(
-      'SELECT avatar_url FROM users WHERE id = $1',
+      'SELECT "avatarUrl" FROM users WHERE id = $1',
       [userId]
     );
 
-    const currentAvatarUrl = currentAvatarResult.rows[0]?.avatar_url;
+    const currentAvatarUrl = currentAvatarResult.rows[0]?.avatarUrl;
 
     // Upload new avatar to Cloudflare R2
     const fileMetadata: FileMetadata = {
@@ -334,9 +340,9 @@ export const updateUserAvatar = async (
     // Save filename (not URL) to database - same as documents
     const updateQuery = `
       UPDATE users
-      SET avatar_url = $1
+      SET "avatarUrl" = $1
       WHERE id = $2
-      RETURNING avatar_url
+      RETURNING "avatarUrl"
     `;
 
     // Save filename path only
@@ -380,11 +386,11 @@ export const deleteUserAvatar = async (userId: string): Promise<boolean> => {
 
     // Get current avatar URL
     const avatarResult = await client.query(
-      'SELECT avatar_url FROM users WHERE id = $1',
+      'SELECT "avatarUrl" FROM users WHERE id = $1',
       [userId]
     );
 
-    const avatarUrl = avatarResult.rows[0]?.avatar_url;
+    const avatarUrl = avatarResult.rows[0]?.avatarUrl;
 
     if (!avatarUrl) {
       return false; // No avatar to delete
@@ -393,7 +399,7 @@ export const deleteUserAvatar = async (userId: string): Promise<boolean> => {
     // Remove avatar URL from database
     const updateQuery = `
       UPDATE users
-      SET avatar_url = NULL
+      SET "avatarUrl" = NULL
       WHERE id = $1
     `;
 

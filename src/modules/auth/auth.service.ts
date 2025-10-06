@@ -22,18 +22,18 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
     }
 
     // Hash password
-    const passwordHash = await hashPassword(userData.password);
+    const hashedPassword = await hashPassword(userData.password);
 
     // Create user
     const userId = crypto.randomUUID();
     const userResult = await client.query(
-      `INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone)
+      `INSERT INTO users (id, email, "passwordHash", role, "firstName", "lastName", phone)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         userId,
         userData.email,
-        passwordHash,
+        hashedPassword,
         userData.role,
         userData.firstName,
         userData.lastName,
@@ -51,8 +51,8 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user.id, user.email, user.role);
 
-    // Return user without password hash
-    const { password_hash, ...userWithoutPassword } = user;
+    // Return user without password hash (column is now camelCase)
+    const { passwordHash, ...userWithoutPassword } = user;
 
     return {
       user: userWithoutPassword,
@@ -69,7 +69,7 @@ export const registerUser = async (userData: RegisterRequest): Promise<AuthRespo
 
 export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> => {
   const result = await pool.query(
-    'SELECT * FROM users WHERE email = $1 AND is_active = true',
+    'SELECT * FROM users WHERE email = $1 AND "isActive" = true',
     [loginData.email]
   );
 
@@ -80,7 +80,7 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
   const user = result.rows[0];
 
   // Verify password
-  const isPasswordValid = await comparePassword(loginData.password, user.password_hash);
+  const isPasswordValid = await comparePassword(loginData.password, user.passwordHash);
 
   if (!isPasswordValid) {
     throw new Error('Invalid credentials');
@@ -88,7 +88,7 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
 
   // Update last login
   await pool.query(
-    'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+    'UPDATE users SET "lastLogin" = CURRENT_TIMESTAMP WHERE id = $1',
     [user.id]
   );
 
@@ -96,7 +96,7 @@ export const loginUser = async (loginData: LoginRequest): Promise<AuthResponse> 
   const { accessToken, refreshToken } = generateTokens(user.id, user.email, user.role);
 
   // Return user without password hash
-  const { password_hash, ...userWithoutPassword } = user;
+  const { passwordHash, ...userWithoutPassword } = user;
 
   return {
     user: userWithoutPassword,
@@ -111,7 +111,7 @@ const createUserProfile = async (client: any, userId: string, role: UserRole, pr
   switch (role) {
     case 'client':
       await client.query(
-        `INSERT INTO client_profiles (id, user_id, company_name, industry, company_size, address, city, country, website, business_license)
+        `INSERT INTO "clientProfiles" (id, "userId", "companyName", industry, "companySize", address, city, country, website, "businessLicense")
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           profileId,
@@ -130,7 +130,7 @@ const createUserProfile = async (client: any, userId: string, role: UserRole, pr
 
     case 'supplier':
       await client.query(
-        `INSERT INTO supplier_profiles (id, user_id, company_name, business_type, license_number, service_categories)
+        `INSERT INTO "supplierProfiles" (id, "userId", "companyName", "businessType", "licenseNumber", "serviceCategories")
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           profileId,
@@ -145,7 +145,7 @@ const createUserProfile = async (client: any, userId: string, role: UserRole, pr
 
     case 'employee':
       await client.query(
-        `INSERT INTO employee_profiles (id, user_id, employee_id, department, position)
+        `INSERT INTO "employeeProfiles" (id, "userId", "employeeId", department, position)
          VALUES ($1, $2, $3, $4, $5)`,
         [
           profileId,
@@ -159,7 +159,7 @@ const createUserProfile = async (client: any, userId: string, role: UserRole, pr
 
     case 'candidate':
       await client.query(
-        `INSERT INTO candidate_profiles (id, user_id, skills, languages)
+        `INSERT INTO "candidateProfiles" (id, "userId", skills, languages)
          VALUES ($1, $2, $3, $4)`,
         [
           profileId,

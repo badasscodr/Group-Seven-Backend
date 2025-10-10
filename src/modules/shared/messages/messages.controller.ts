@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { MessagesService } from './messages.service';
 import { AuthenticatedRequest } from '../../../core/middleware/auth';
 import { CreateMessageRequest, GetMessagesQuery, GetConversationsQuery } from './messages.types';
+import { getSocketService } from '../../../core/services/socket.service';
 
 export class MessagesController {
   constructor(private messagesService: MessagesService) {}
@@ -224,6 +225,18 @@ export class MessagesController {
       }
 
       await this.messagesService.markConversationAsRead(conversationId, userId);
+
+      // Emit Socket.IO event for conversation read
+      try {
+        const socketService = getSocketService();
+        socketService.getIO().to(`user:${userId}`).emit('conversation:read', {
+          conversationId,
+          userId
+        });
+      } catch (socketError) {
+        console.error('Error emitting conversation read via Socket.IO:', socketError);
+        // Don't throw error - continue with the request even if Socket.IO fails
+      }
 
       res.json({
         success: true,

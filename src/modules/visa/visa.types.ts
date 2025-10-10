@@ -30,11 +30,11 @@ export type VisaType =
 export type VisaStatus =
   | 'active'
   | 'expired'
-  | 'expiring_soon'
-  | 'expiring_critical'
+  | 'expiringSoon'
+  | 'expiringCritical'
   | 'pending'
   | 'cancelled'
-  | 'renewal_required';
+  | 'renewalRequired';
 
 export interface CreateVisaData {
   documentId: string;

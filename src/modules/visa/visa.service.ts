@@ -8,7 +8,6 @@ import {
   VisaType,
   VisaStatus,
   VisaDocumentWithRelations,
-  VisaExpiryNotification,
 } from './visa.types';
 
 /**
@@ -54,9 +53,9 @@ export const createVisaRecord = async (
     if (daysUntilExpiry < 0) {
       status = 'expired';
     } else if (daysUntilExpiry <= 7) {
-      status = 'expiring_critical';
+      status = 'expiringCritical';
     } else if (daysUntilExpiry <= 30) {
-      status = 'expiring_soon';
+      status = 'expiringSoon';
     }
 
     // Create visa record
@@ -413,8 +412,8 @@ export const getVisaStats = async (userId?: string): Promise<VisaStats> => {
         COUNT(*) AS "totalVisas",
         COUNT(CASE WHEN "status" = 'active' THEN 1 END) AS "activeVisas",
         COUNT(CASE WHEN "status" = 'expired' THEN 1 END) AS "expiredVisas",
-        COUNT(CASE WHEN "status" IN ('expiring_soon', 'expiring_critical') THEN 1 END) AS "expiringWithin30Days",
-        COUNT(CASE WHEN "status" = 'expiring_critical' THEN 1 END) AS "expiringWithin7Days",
+        COUNT(CASE WHEN "status" IN ('expiringSoon', 'expiringCritical') THEN 1 END) AS "expiringWithin30Days",
+        COUNT(CASE WHEN "status" = 'expiringCritical' THEN 1 END) AS "expiringWithin7Days",
         "visaType",
         "status",
         COUNT(*) AS "count"
@@ -483,16 +482,16 @@ export const updateVisaStatuses = async (): Promise<{ updated: number; notificat
     // Update critically expiring visas (within 7 days)
     const criticalQuery = `
       UPDATE "visaDocuments"
-      SET "status" = 'expiring_critical', "updatedAt" = NOW()
-      WHERE "expiryDate" BETWEEN $1 AND $2 AND "status" NOT IN ('expired', 'expiring_critical') AND "isActive" = true
+      SET "status" = 'expiringCritical', "updatedAt" = NOW()
+      WHERE "expiryDate" BETWEEN $1 AND $2 AND "status" NOT IN ('expired', 'expiringCritical') AND "isActive" = true
     `;
     const criticalResult = await client.query(criticalQuery, [now.toISOString(), in7Days.toISOString()]);
 
     // Update soon expiring visas (within 30 days)
     const soonQuery = `
       UPDATE "visaDocuments"
-      SET "status" = 'expiring_soon', "updatedAt" = NOW()
-      WHERE "expiryDate" BETWEEN $1 AND $2 AND "status" NOT IN ('expired', 'expiring_critical', 'expiring_soon') AND "isActive" = true
+      SET "status" = 'expiringSoon', "updatedAt" = NOW()
+      WHERE "expiryDate" BETWEEN $1 AND $2 AND "status" NOT IN ('expired', 'expiringCritical', 'expiringSoon') AND "isActive" = true
     `;
     const soonResult = await client.query(soonQuery, [in7Days.toISOString(), in30Days.toISOString()]);
 

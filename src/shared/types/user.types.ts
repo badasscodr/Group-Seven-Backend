@@ -3,78 +3,80 @@ export type UserRole = 'admin' | 'client' | 'supplier' | 'employee' | 'candidate
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
+  passwordHash: string;
   role: UserRole;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
-  avatar_url?: string;
-  is_active: boolean;
-  email_verified: boolean;
-  created_at: Date;
-  updated_at: Date;
-  last_login?: Date;
+  avatarUrl?: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLogin?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
 }
 
 export interface ClientProfile {
   id: string;
-  user_id: string;
-  company_name?: string;
+  userId: string;
+  companyName?: string;
   industry?: string;
-  company_size?: string;
+  companySize?: string;
   address?: string;
   city?: string;
   country?: string;
   website?: string;
-  business_license?: string;
-  created_at: Date;
+  businessLicense?: string;
+  createdAt: Date;
 }
 
 export interface SupplierProfile {
   id: string;
-  user_id: string;
-  company_name: string;
-  business_type?: string;
-  license_number?: string;
-  trade_license_expiry?: Date;
-  insurance_details?: string;
-  service_categories: string[];
+  userId: string;
+  companyName: string;
+  businessType?: string;
+  licenseNumber?: string;
+  tradeLicenseExpiry?: Date;
+  insuranceDetails?: string;
+  serviceCategories: string[];
   rating: number;
-  total_reviews: number;
-  is_verified: boolean;
-  created_at: Date;
+  totalReviews: number;
+  isVerified: boolean;
+  createdAt: Date;
 }
 
 export interface EmployeeProfile {
   id: string;
-  user_id: string;
-  employee_id?: string;
+  userId: string;
+  employeeId?: string;
   department?: string;
   position?: string;
-  hire_date?: Date;
+  hireDate?: Date;
   salary?: number;
-  visa_status?: string;
-  visa_expiry?: Date;
-  passport_number?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  manager_id?: string;
-  created_at: Date;
+  visaStatus?: string;
+  visaExpiry?: Date;
+  passportNumber?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  managerId?: string;
+  createdAt: Date;
 }
 
 export interface CandidateProfile {
   id: string;
-  user_id: string;
-  resume_url?: string;
-  portfolio_url?: string;
-  linkedin_url?: string;
-  experience_years?: number;
-  desired_salary_min?: number;
-  desired_salary_max?: number;
-  location_preference?: string;
-  job_type_preference?: string;
+  userId: string;
+  resumeUrl?: string;
+  portfolioUrl?: string;
+  linkedinUrl?: string;
+  experienceYears?: number;
+  desiredSalaryMin?: number;
+  desiredSalaryMax?: number;
+  locationPreference?: string;
+  jobTypePreference?: string;
   skills: string[];
   languages: string[];
-  availability_date?: Date;
-  created_at: Date;
+  availabilityDate?: Date;
+  createdAt: Date;
 }

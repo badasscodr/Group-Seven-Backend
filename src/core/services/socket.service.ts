@@ -28,9 +28,15 @@ export class SocketService {
   private setupMiddleware() {
     // Authentication middleware
     this.io.use((socket: AuthenticatedSocket, next) => {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+      let token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+
+      // If token has "Bearer " prefix, remove it
+      if (token && typeof token === 'string' && token.startsWith('Bearer ')) {
+        token = token.substring(7);
+      }
 
       if (!token) {
+        console.log('Authentication error: No token provided');
         return next(new Error('Authentication error: No token provided'));
       }
 
@@ -39,8 +45,10 @@ export class SocketService {
         socket.userId = decoded.sub;
         socket.userEmail = decoded.email;
         socket.userRole = decoded.role;
+        console.log(`✅ Socket authenticated for user: ${socket.userId} (${socket.userEmail})`);
         next();
       } catch (error) {
+        console.log('Authentication error: Invalid token', error);
         next(new Error('Authentication error: Invalid token'));
       }
     });
@@ -48,7 +56,7 @@ export class SocketService {
 
   private setupEventHandlers() {
     this.io.on('connection', (socket: AuthenticatedSocket) => {
-      console.log(`✅ User connected: ${socket.userId} (${socket.userEmail})`);
+      console.log(`✅ User connected with socket ID: ${socket.id}, userId: ${socket.userId} (${socket.userEmail})`);
 
       // Track user's socket
       if (socket.userId) {
@@ -59,13 +67,17 @@ export class SocketService {
 
         // Join user's personal room
         socket.join(`user:${socket.userId}`);
+        console.log(`User ${socket.userId} joined personal room: user:${socket.userId}`);
 
         // Notify user's contacts that they're online
         this.emitUserStatus(socket.userId, true);
+      } else {
+        console.log('⚠️ Connected socket without valid userId - authentication may have failed');
       }
 
       // Handle typing indicator
       socket.on('typing:start', ({ conversationId }) => {
+        console.log(`User ${socket.userId} started typing in conversation ${conversationId}`);
         socket.to(`conversation:${conversationId}`).emit('user:typing', {
           userId: socket.userId,
           conversationId,
@@ -73,6 +85,7 @@ export class SocketService {
       });
 
       socket.on('typing:stop', ({ conversationId }) => {
+        console.log(`User ${socket.userId} stopped typing in conversation ${conversationId}`);
         socket.to(`conversation:${conversationId}`).emit('user:stopped_typing', {
           userId: socket.userId,
           conversationId,
@@ -81,16 +94,19 @@ export class SocketService {
 
       // Handle joining conversation rooms
       socket.on('conversation:join', ({ conversationId }) => {
+        console.log(`User ${socket.userId} joining conversation room: conversation:${conversationId}`);
         socket.join(`conversation:${conversationId}`);
+        console.log(`User ${socket.userId} joined conversation room: conversation:${conversationId}`);
       });
 
       socket.on('conversation:leave', ({ conversationId }) => {
+        console.log(`User ${socket.userId} leaving conversation room: conversation:${conversationId}`);
         socket.leave(`conversation:${conversationId}`);
       });
 
       // Handle disconnect
-      socket.on('disconnect', () => {
-        console.log(`❌ User disconnected: ${socket.userId}`);
+      socket.on('disconnect', (reason) => {
+        console.log(`❌ User disconnected: ${socket.userId}, reason: ${reason}, socket ID: ${socket.id}`);
 
         if (socket.userId) {
           const userSocketIds = this.userSockets.get(socket.userId);
@@ -108,9 +124,54 @@ export class SocketService {
     });
   }
 
-  // Emit new message to conversation participants
+  // Emit new message to conversation participants and both users' personal rooms
   public emitNewMessage(conversationId: string, message: any) {
+    console.log('🔔 SocketService: Emitting new message event');
+    console.log(`📍 Conversation room: conversation:${conversationId}`);
+    console.log(`📊 Conversation room size: ${this.io.sockets.adapter.rooms.get(`conversation:${conversationId}`)?.size || 0}`);
+
+    // Emit to conversation room (for users currently viewing this conversation)
     this.io.to(`conversation:${conversationId}`).emit('message:new', message);
+    console.log('✅ Emitted to conversation room');
+
+    // Emit to both sender and recipient personal rooms to ensure they receive the message
+    // This ensures real-time delivery even if they're not currently viewing the conversation
+    const recipientId = message.recipient?.id;
+    const senderId = message.sender?.id;
+
+    if (recipientId) {
+      const recipientRoom = this.io.sockets.adapter.rooms.get(`user:${recipientId}`);
+      console.log(`👤 Emitting to recipient's room: user:${recipientId}`);
+      console.log(`📊 Recipient room size: ${recipientRoom?.size || 0}`);
+      if (recipientRoom) {
+        console.log(`🔌 Recipient sockets:`, Array.from(recipientRoom));
+      }
+      this.io.to(`user:${recipientId}`).emit('message:new', message);
+      console.log('✅ Emitted to recipient room');
+    }
+
+    if (senderId) {
+      const senderRoom = this.io.sockets.adapter.rooms.get(`user:${senderId}`);
+      console.log(`👤 Emitting to sender's room: user:${senderId}`);
+      console.log(`📊 Sender room size: ${senderRoom?.size || 0}`);
+      if (senderRoom) {
+        console.log(`🔌 Sender sockets:`, Array.from(senderRoom));
+      }
+      this.io.to(`user:${senderId}`).emit('message:new', message);
+      console.log('✅ Emitted to sender room');
+    }
+
+    // Debug: log which users are in the conversation room
+    const conversationRoom = this.io.sockets.adapter.rooms.get(`conversation:${conversationId}`);
+    if (conversationRoom) {
+      console.log(`👥 Users in conversation ${conversationId}:`, Array.from(conversationRoom));
+    } else {
+      console.log(`⚠️ No users in conversation ${conversationId} room`);
+    }
+
+    // Log all connected users for debugging
+    console.log(`📊 Total connected users: ${this.userSockets.size}`);
+    console.log(`👥 Connected user IDs:`, Array.from(this.userSockets.keys()));
   }
 
   // Emit message edit to conversation participants

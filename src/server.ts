@@ -33,14 +33,20 @@ const PORT = process.env.PORT || 8000;
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'), // 1 minute (changed from 15 minutes)
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000'), // 1000 requests per minute (changed from 100)
   message: {
     success: false,
     error: {
       code: 'RATE_LIMIT_EXCEEDED',
       message: 'Too many requests from this IP, please try again later.'
     }
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting for Socket.IO connections and health checks
+    return req.path.startsWith('/socket.io') || req.path === '/health' || req.path === '/ready';
   }
 });
 

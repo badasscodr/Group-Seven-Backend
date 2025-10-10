@@ -306,8 +306,8 @@ export const updateVisa = async (req: AuthenticatedRequest, res: Response) => {
 
     if (status !== undefined) {
       const validStatuses: VisaStatus[] = [
-        'active', 'expired', 'expiring_soon', 'expiring_critical',
-        'pending', 'cancelled', 'renewal_required'
+        'active', 'expired', 'expiringSoon', 'expiringCritical',
+        'pending', 'cancelled', 'renewalRequired'
       ];
 
       if (!validStatuses.includes(status)) {

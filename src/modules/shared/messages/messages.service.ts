@@ -11,33 +11,70 @@ import {
   ConversationResponse,
   User
 } from './messages.types';
+import { getSocketService } from '../../../core/services/socket.service';
 
 export class MessagesService {
   constructor(private db: Pool) {}
 
   /**
    * Create or get existing conversation between two users
+   * If conversation was soft-deleted, it will be "undeleted" for both users
    */
   async createOrGetConversation(userId1: string, userId2: string): Promise<string> {
     try {
-      // Check if conversation already exists
+      // Check if conversation already exists (including soft-deleted ones)
       const existingConversation = await this.db.query(`
-        SELECT "id" FROM conversations
+        SELECT "id", "deletedBy" FROM conversations
         WHERE "participants"::jsonb @> $1::jsonb AND "participants"::jsonb @> $2::jsonb
         AND jsonb_array_length("participants") = 2
       `, [JSON.stringify([userId1]), JSON.stringify([userId2])]);
 
       if (existingConversation.rows.length > 0) {
-        return existingConversation.rows[0].id;
+        const conversationId = existingConversation.rows[0].id;
+        const deletedBy = existingConversation.rows[0].deletedBy;
+
+        // If conversation was soft-deleted by either user, remove them from deletedBy
+        if (deletedBy && (Array.isArray(deletedBy) || typeof deletedBy === 'string')) {
+          let deletedByArray: string[] = [];
+
+          try {
+            deletedByArray = typeof deletedBy === 'string' ? JSON.parse(deletedBy) : deletedBy;
+          } catch (e) {
+            console.error('Error parsing deletedBy:', e);
+            deletedByArray = [];
+          }
+
+          // Remove both users from deletedBy array (they're restarting the conversation)
+          const newDeletedBy = deletedByArray.filter(id => id !== userId1 && id !== userId2);
+
+          if (deletedByArray.length !== newDeletedBy.length) {
+            console.log(`♻️ Restoring conversation ${conversationId} for users who previously deleted it`);
+            console.log(`   Previous deletedBy:`, deletedByArray);
+            console.log(`   New deletedBy:`, newDeletedBy);
+
+            await this.db.query(`
+              UPDATE conversations
+              SET "deletedBy" = $1, "updatedAt" = NOW()
+              WHERE "id" = $2
+            `, [JSON.stringify(newDeletedBy), conversationId]);
+
+            console.log(`✅ Conversation restored successfully`);
+          }
+        }
+
+        return conversationId;
       }
 
       // Create new conversation
       const conversationId = randomUUID();
+      console.log(`📝 Creating new conversation between ${userId1} and ${userId2}`);
+
       await this.db.query(`
-        INSERT INTO conversations ("id", "participants", "createdAt", "updatedAt")
-        VALUES ($1, $2, NOW(), NOW())
+        INSERT INTO conversations ("id", "participants", "deletedBy", "createdAt", "updatedAt")
+        VALUES ($1, $2, '[]'::jsonb, NOW(), NOW())
       `, [conversationId, JSON.stringify([userId1, userId2])]);
 
+      console.log(`✅ New conversation created: ${conversationId}`);
       return conversationId;
     } catch (error) {
       console.error('Error creating/getting conversation:', error);
@@ -87,7 +124,7 @@ export class MessagesService {
       ]);
 
       const message = messageResult.rows[0];
-      return {
+      const messageResponse = {
         id: message.id,
         content: message.content,
         sender: senderResult,
@@ -99,6 +136,23 @@ export class MessagesService {
         fileUrl: message.fileUrl,
         fileName: message.fileName
       };
+
+      // Emit Socket.IO event for new message
+      try {
+        console.log('📤 MessagesService: Attempting to emit new message via Socket.IO');
+        console.log('📍 Conversation ID:', conversationId);
+        console.log('👤 Sender:', senderId, '→ Recipient:', data.recipientId);
+
+        const socketService = getSocketService();
+        socketService.emitNewMessage(conversationId, messageResponse);
+
+        console.log('✅ MessagesService: Socket.IO emit completed');
+      } catch (socketError) {
+        console.error('❌ MessagesService: Error emitting new message via Socket.IO:', socketError);
+        // Don't throw error - continue with the request even if Socket.IO fails
+      }
+
+      return messageResponse;
     } catch (error) {
       console.error('Error sending message:', error);
       throw new Error('Failed to send message');
@@ -174,17 +228,15 @@ export class MessagesService {
     try {
       const { limit = 20, offset = 0, search } = query;
 
-      let whereClause = 'WHERE c."participants"::jsonb ? $1::text';
+      let whereClause = `WHERE c."participants"::jsonb ? $1::text`;
       const params: any[] = [userId];
 
-      // Add search functionality if provided
+      // Exclude conversations that have been soft-deleted by this user
+      whereClause += ` AND (c."deletedBy" IS NULL OR NOT c."deletedBy"::jsonb ? $1::text)`;
+
+      // Add search functionality if provided, using proper PostgreSQL parameter placeholders
       if (search) {
-        whereClause += ` AND (
-          u."firstName" ILIKE $${params.length + 1} OR
-          u."lastName" ILIKE $${params.length + 1} OR
-          u."email" ILIKE $${params.length + 1} OR
-          m."content" ILIKE $${params.length + 1}
-        )`;
+        whereClause += ` AND (c."lastMessageId" IS NOT NULL AND m."content" ILIKE $${params.length + 1})`;
         params.push(`%${search}%`);
       }
 
@@ -395,7 +447,7 @@ export class MessagesService {
     try {
       // First check if the message exists and belongs to the user
       const checkResult = await this.db.query(`
-        SELECT "senderId" FROM messages WHERE "id" = $1
+        SELECT "senderId", "conversationId" FROM messages WHERE "id" = $1
       `, [messageId]);
 
       if (checkResult.rows.length === 0) {
@@ -405,6 +457,8 @@ export class MessagesService {
       if (checkResult.rows[0].senderId !== userId) {
         throw new Error('Unauthorized: You can only edit your own messages');
       }
+
+      const conversationId = checkResult.rows[0].conversationId;
 
       // Update the message
       const updateResult = await this.db.query(`
@@ -426,7 +480,7 @@ export class MessagesService {
         this.getUserById(message.recipientId)
       ]);
 
-      return {
+      const messageResponse = {
         id: message.id,
         content: message.content,
         sender: senderResult,
@@ -438,6 +492,17 @@ export class MessagesService {
         fileUrl: message.fileUrl,
         fileName: message.fileName
       };
+
+      // Emit Socket.IO event for message edit
+      try {
+        const socketService = getSocketService();
+        socketService.emitMessageEdit(conversationId, messageResponse);
+      } catch (socketError) {
+        console.error('Error emitting message edit via Socket.IO:', socketError);
+        // Don't throw error - continue with the request even if Socket.IO fails
+      }
+
+      return messageResponse;
     } catch (error) {
       console.error('Error editing message:', error);
       throw error;
@@ -463,6 +528,11 @@ export class MessagesService {
       }
 
       const conversationId = checkResult.rows[0].conversationId;
+
+      // Get the message before deletion to access its details for the event
+      const messageBeforeDelete = await this.db.query(`
+        SELECT "id", "conversationId" FROM messages WHERE "id" = $1
+      `, [messageId]);
 
       // Delete the message
       await this.db.query(`
@@ -491,6 +561,17 @@ export class MessagesService {
           WHERE "id" = $1
         `, [conversationId]);
       }
+
+      // Emit Socket.IO event for message delete
+      if (messageBeforeDelete.rows.length > 0) {
+        try {
+          const socketService = getSocketService();
+          socketService.emitMessageDelete(conversationId, messageId);
+        } catch (socketError) {
+          console.error('Error emitting message delete via Socket.IO:', socketError);
+          // Don't throw error - continue with the request even if Socket.IO fails
+        }
+      }
     } catch (error) {
       console.error('Error deleting message:', error);
       throw error;
@@ -498,13 +579,13 @@ export class MessagesService {
   }
 
   /**
-   * Delete a conversation
+   * Delete a conversation (soft delete - only hides for the user who deletes it)
    */
   async deleteConversation(conversationId: string, userId: string): Promise<void> {
     try {
-      // Check if user is a participant
+      // Check if user is a participant and get current deletedBy array
       const checkResult = await this.db.query(`
-        SELECT "participants" FROM conversations WHERE "id" = $1
+        SELECT "participants", "deletedBy" FROM conversations WHERE "id" = $1
       `, [conversationId]);
 
       if (checkResult.rows.length === 0) {
@@ -529,15 +610,48 @@ export class MessagesService {
         throw new Error('Unauthorized: You are not a participant of this conversation');
       }
 
-      // Delete all messages in the conversation (CASCADE will handle this, but explicit for clarity)
-      await this.db.query(`
-        DELETE FROM messages WHERE "conversationId" = $1
-      `, [conversationId]);
+      // Add user to the deletedBy array (soft delete for this user)
+      let currentDeletedBy: string[];
+      try {
+        if (typeof checkResult.rows[0].deletedBy === 'string') {
+          currentDeletedBy = JSON.parse(checkResult.rows[0].deletedBy);
+        } else if (Array.isArray(checkResult.rows[0].deletedBy)) {
+          currentDeletedBy = checkResult.rows[0].deletedBy;
+        } else {
+          currentDeletedBy = [];
+        }
+      } catch (parseError) {
+        console.error('Error parsing deletedBy:', parseError);
+        currentDeletedBy = [];
+      }
 
-      // Delete the conversation
-      await this.db.query(`
-        DELETE FROM conversations WHERE "id" = $1
-      `, [conversationId]);
+      // Add user to the deletedBy array if not already present
+      if (!currentDeletedBy.includes(userId)) {
+        const newDeletedBy = [...currentDeletedBy, userId];
+        console.log(`🗑️ Soft deleting conversation ${conversationId} for user ${userId}`);
+        console.log(`   Previous deletedBy:`, currentDeletedBy);
+        console.log(`   New deletedBy:`, newDeletedBy);
+
+        await this.db.query(`
+          UPDATE conversations
+          SET "deletedBy" = $1, "updatedAt" = NOW()
+          WHERE "id" = $2
+        `, [JSON.stringify(newDeletedBy), conversationId]);
+
+        console.log(`✅ Conversation soft-deleted successfully`);
+      } else {
+        console.log(`⚠️ User ${userId} has already deleted conversation ${conversationId}`);
+      }
+
+      // Emit Socket.IO event for conversation delete (only to the user who deleted it)
+      try {
+        console.log(`📤 Emitting conversation delete event to user ${userId}`);
+        const socketService = getSocketService();
+        socketService.emitConversationDelete(userId, conversationId);
+      } catch (socketError) {
+        console.error('❌ Error emitting conversation delete via Socket.IO:', socketError);
+        // Don't throw error - continue with the request even if Socket.IO fails
+      }
     } catch (error) {
       console.error('Error deleting conversation:', error);
       throw error;
@@ -559,7 +673,8 @@ export class MessagesService {
                  AND (m."isRead" = false OR m."isRead" IS NULL)
                ) AS "unreadCount"
         FROM conversations c
-        WHERE c."id" = $1 AND c."participants"::jsonb ? $2::text
+        WHERE c."id" = $1 
+          AND c."participants"::jsonb ? $2::text
       `, [conversationId, userId]);
 
       if (result.rows.length === 0) {

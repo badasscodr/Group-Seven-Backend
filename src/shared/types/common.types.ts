@@ -1,10 +1,10 @@
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type RequestStatus = 'draft' | 'published' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold';
+export type RequestStatus = 'draft' | 'published' | 'inProgress' | 'completed' | 'cancelled' | 'onHold';
 
 export type QuotationStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
 
-export type JobType = 'full_time' | 'part_time' | 'contract' | 'internship';
+export type JobType = 'fullTime' | 'partTime' | 'contract' | 'internship';
 
 export type JobStatus = 'draft' | 'published' | 'closed' | 'cancelled';
 
@@ -14,11 +14,11 @@ export type InterviewStatus = 'scheduled' | 'completed' | 'cancelled' | 'resched
 
 export type DocumentCategory = 'resume' | 'certificate' | 'license' | 'contract' | 'invoice' | 'passport' | 'visa' | 'insurance' | 'other';
 
-export type MessageType = 'direct' | 'service_request' | 'job_application' | 'system';
+export type MessageType = 'direct' | 'serviceRequest' | 'jobApplication' | 'system';
 
 export type NotificationType = 'message' | 'application' | 'interview' | 'payment' | 'document' | 'system' | 'reminder';
 
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'half_day' | 'holiday';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'halfDay' | 'holiday';
 
 export type LeaveType = 'annual' | 'sick' | 'emergency' | 'maternity' | 'paternity';
 
@@ -51,34 +51,34 @@ export { UserRole };
 
 export interface ServiceRequest {
   id: string;
-  client_id: string;
+  clientId: string;
   title: string;
   description: string;
   category: string;
   priority: Priority;
   status: RequestStatus;
-  budget_min?: number;
-  budget_max?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   deadline?: Date;
   location?: string;
   requirements?: string;
-  assigned_supplier_id?: string;
-  assigned_employee_id?: string;
-  created_at: Date;
-  updated_at: Date;
+  assignedSupplierId?: string;
+  assignedEmployeeId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Quotation {
   id: string;
-  service_request_id: string;
-  supplier_id: string;
+  serviceRequestId: string;
+  supplierId: string;
   amount: number;
   description?: string;
-  estimated_duration?: string;
-  terms_conditions?: string;
+  estimatedDuration?: string;
+  termsConditions?: string;
   status: QuotationStatus;
-  valid_until?: Date;
-  created_at: Date;
+  validUntil?: Date;
+  createdAt: Date;
 }
 
 export interface JobPosting {
@@ -87,102 +87,102 @@ export interface JobPosting {
   description: string;
   company?: string;
   location?: string;
-  job_type: JobType;
-  experience_required?: number;
-  salary_min?: number;
-  salary_max?: number;
-  skills_required: string[];
+  jobType: JobType;
+  experienceRequired?: number;
+  salaryMin?: number;
+  salaryMax?: number;
+  skillsRequired: string[];
   benefits: string[];
   status: JobStatus;
-  posted_by?: string;
-  application_deadline?: Date;
-  created_at: Date;
+  postedBy?: string;
+  applicationDeadline?: Date;
+  createdAt: Date;
 }
 
 export interface JobApplication {
   id: string;
-  job_id: string;
-  candidate_id: string;
-  cover_letter?: string;
-  resume_url?: string;
+  jobId: string;
+  candidateId: string;
+  coverLetter?: string;
+  resumeUrl?: string;
   status: ApplicationStatus;
-  applied_at: Date;
+  appliedAt: Date;
 }
 
 export interface Interview {
   id: string;
-  application_id: string;
-  scheduled_date: Date;
+  applicationId: string;
+  scheduledDate: Date;
   duration: number;
-  interview_type?: string;
+  interviewType?: string;
   location?: string;
-  interviewer_id?: string;
+  interviewerId?: string;
   status: InterviewStatus;
   notes?: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 export interface Document {
   id: string;
-  user_id: string;
+  userId: string;
   filename: string;
-  original_name: string;
-  file_url: string;
-  file_size: number;
-  mime_type: string;
+  originalName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
   category?: DocumentCategory;
-  is_public: boolean;
-  uploaded_at: Date;
+  isPublic: boolean;
+  uploadedAt: Date;
 }
 
 export interface Message {
   id: string;
-  sender_id: string;
-  recipient_id: string;
+  senderId: string;
+  recipientId: string;
   subject?: string;
   content: string;
-  is_read: boolean;
-  message_type: MessageType;
-  reference_id?: string;
-  created_at: Date;
+  isRead: boolean;
+  messageType: MessageType;
+  referenceId?: string;
+  createdAt: Date;
 }
 
 export interface Notification {
   id: string;
-  user_id: string;
+  userId: string;
   title: string;
   content: string;
   type: NotificationType;
-  is_read: boolean;
-  action_url?: string;
-  created_at: Date;
+  isRead: boolean;
+  actionUrl?: string;
+  createdAt: Date;
 }
 
 export interface Attendance {
   id: string;
-  employee_id: string;
+  employeeId: string;
   date: Date;
-  check_in?: Date;
-  check_out?: Date;
-  break_duration: number;
-  total_hours?: number;
+  checkIn?: Date;
+  checkOut?: Date;
+  breakDuration: number;
+  totalHours?: number;
   status: AttendanceStatus;
   notes?: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 export interface LeaveRequest {
   id: string;
-  employee_id: string;
-  leave_type: LeaveType;
-  start_date: Date;
-  end_date: Date;
-  days_requested: number;
+  employeeId: string;
+  leaveType: LeaveType;
+  startDate: Date;
+  endDate: Date;
+  daysRequested: number;
   reason?: string;
   status: LeaveStatus;
-  approved_by?: string;
-  approved_at?: Date;
-  created_at: Date;
+  approvedBy?: string;
+  approvedAt?: Date;
+  createdAt: Date;
 }
 
 export interface JWTPayload {

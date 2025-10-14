@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 8000;
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    origin: getAllowedOrigins(),
     credentials: true
   }
 });
@@ -57,8 +57,24 @@ const limiter = rateLimit({
 });
 
 app.use(helmet());
+// CORS configuration - allow multiple origins including Vercel previews
+const getAllowedOrigins = () => {
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (corsOrigin) {
+    return corsOrigin.split(',');
+  }
+  
+  // Default origins for development and production
+  return [
+    'http://localhost:3000',
+    'https://group-seven-beeovbt6y-aaashir128s-projects.vercel.app',
+    // Allow all Vercel preview domains
+    /\.vercel\.app$/
+  ];
+};
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+  origin: getAllowedOrigins(),
   credentials: true
 }));
 app.use(limiter);

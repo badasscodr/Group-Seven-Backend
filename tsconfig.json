@@ -23,7 +23,7 @@
     "noImplicitOverride": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-    "types": ["node", "jest"]
+    "types": ["node"]
   },
   "include": [
     "src/**/*"

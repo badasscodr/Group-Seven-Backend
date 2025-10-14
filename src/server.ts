@@ -23,6 +23,22 @@ import clientRoutes from './modules/clients/routes/client.routes';
 
 dotenv.config();
 
+// CORS configuration - allow multiple origins including Vercel previews
+const getAllowedOrigins = () => {
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (corsOrigin) {
+    return corsOrigin.split(',');
+  }
+  
+  // Default origins for development and production
+  return [
+    'http://localhost:3000',
+    'https://group-seven-beeovbt6y-aaashir128s-projects.vercel.app',
+    // Allow all Vercel preview domains
+    /\.vercel\.app$/
+  ];
+};
+
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -57,22 +73,6 @@ const limiter = rateLimit({
 });
 
 app.use(helmet());
-// CORS configuration - allow multiple origins including Vercel previews
-const getAllowedOrigins = () => {
-  const corsOrigin = process.env.CORS_ORIGIN;
-  if (corsOrigin) {
-    return corsOrigin.split(',');
-  }
-  
-  // Default origins for development and production
-  return [
-    'http://localhost:3000',
-    'https://group-seven-beeovbt6y-aaashir128s-projects.vercel.app',
-    // Allow all Vercel preview domains
-    /\.vercel\.app$/
-  ];
-};
-
 app.use(cors({
   origin: getAllowedOrigins(),
   credentials: true

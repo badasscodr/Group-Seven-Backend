@@ -9,7 +9,8 @@
     "lint": "echo \"No linting configured yet\"",
     "typecheck": "tsc --noEmit",
     "init-db": "ts-node src/scripts/initDb.ts",
-    "reset-db": "ts-node src/scripts/resetDb.ts"
+    "reset-db": "ts-node src/scripts/resetDb.ts",
+    "check-schema": "ts-node src/scripts/checkSchema.ts"
   },
   "keywords": [],
   "author": "",

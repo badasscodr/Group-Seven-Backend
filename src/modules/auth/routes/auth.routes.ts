@@ -8,7 +8,7 @@ import { ApiResponse, AuthenticatedRequest } from '../../core/types';
 
 const router = Router();
 
-// Register
+// Register - Minimal validation for frontend forms
 router.post('/register',
   body('email')
     .isEmail()
@@ -32,27 +32,27 @@ router.post('/register',
     .optional()
     .isMobilePhone('any')
     .withMessage('Valid phone number format required'),
-  // Role-specific fields
+  // Role-specific fields (all optional for registration)
   body('companyName')
     .optional()
     .isLength({ min: 1, max: 255 })
-    .withMessage('Company name is required for client/supplier'),
+    .withMessage('Company name must be between 1 and 255 characters'),
   body('businessType')
     .optional()
     .isLength({ min: 1, max: 100 })
-    .withMessage('Business type is required for client/supplier'),
+    .withMessage('Business type must be between 1 and 100 characters'),
   body('serviceCategories')
     .optional()
     .isLength({ min: 1, max: 500 })
-    .withMessage('Service categories are required for supplier'),
+    .withMessage('Service categories must be between 1 and 500 characters'),
   body('skills')
     .optional()
     .isLength({ min: 1, max: 500 })
-    .withMessage('Skills are required for candidate'),
+    .withMessage('Skills must be between 1 and 500 characters'),
   body('experience')
     .optional()
     .isIn(['entry', 'junior', 'mid', 'senior', 'expert'])
-    .withMessage('Valid experience level is required for candidate'),
+    .withMessage('Valid experience level is required'),
   validationMiddleware,
   asyncHandler(async (req: any, res: any) => {
     const result = await AuthService.register(req.body);

@@ -57,48 +57,60 @@ export class AuthService {
       throw new AppError('Email already registered', 409);
     }
 
+    console.log('🔐 Starting user registration:', { email: userData.email, role: userData.role });
+
     // Create user and role-specific profile in a transaction
     const result = await transaction(async (client) => {
-      // Create basic user record
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role, first_name, last_name, phone) 
-         VALUES ($1, $2, $3, $4, $5, $6) 
-         RETURNING *`,
-        [
-          userData.email,
-          userData.password, // This should be hashed in the model
-          userData.role,
-          userData.firstName,
-          userData.lastName,
-          userData.phone || null
-        ]
-      );
+      console.log('🔐 Creating user with AuthModel...');
+      
+      // Use AuthModel.create which hashes the password properly
+      const user = await AuthModel.create(userData);
+      console.log('✅ User created successfully:', { id: user.id, email: user.email, role: user.role });
 
-      const user = userResult.rows[0];
-
-      // Create role-specific profile
+      // Create role-specific profile (only if relevant data provided)
       if (userData.role === 'client') {
-        await client.query(
-          `INSERT INTO client_profiles (user_id, company_name, business_type) 
-           VALUES ($1, $2, $3)`,
-          [user.id, userData.companyName || null, userData.businessType || null]
-        );
+        console.log('🏢 Creating client profile with data:', { 
+          companyName: userData.companyName, 
+          businessType: userData.businessType 
+        });
+        
+        // Only create client profile if company data is provided
+        if (userData.companyName || userData.businessType) {
+          await client.query(
+            `INSERT INTO client_profiles (user_id, company_name, industry) 
+             VALUES ($1, $2, $3)`,
+            [user.id, userData.companyName || null, userData.businessType || null]
+          );
+          console.log('✅ Client profile created');
+        } else {
+          console.log('ℹ️ No company data provided, skipping client profile creation');
+        }
       } else if (userData.role === 'supplier') {
+        console.log('🏭 Creating supplier profile');
+        // Suppliers should have at least company name
         await client.query(
           `INSERT INTO supplier_profiles (user_id, company_name, business_type, service_categories) 
            VALUES ($1, $2, $3, $4)`,
-          [user.id, userData.companyName || null, userData.businessType || null, userData.serviceCategories || null]
+          [user.id, userData.companyName || 'Default Company', userData.businessType || null, userData.serviceCategories || null]
         );
+        console.log('✅ Supplier profile created');
       } else if (userData.role === 'candidate') {
-        await client.query(
-          `INSERT INTO candidate_profiles (user_id, skills, experience_years) 
-           VALUES ($1, $2, $3)`,
-          [
-            user.id, 
-            userData.skills ? [userData.skills] : null, 
-            userData.experience ? this.getExperienceYears(userData.experience) : null
-          ]
-        );
+        console.log('👤 Creating candidate profile');
+        // Only create candidate profile if skills or experience is provided
+        if (userData.skills || userData.experience) {
+          await client.query(
+            `INSERT INTO candidate_profiles (user_id, skills, experience_years) 
+             VALUES ($1, $2, $3)`,
+            [
+              user.id, 
+              userData.skills ? [userData.skills] : null, 
+              userData.experience ? this.getExperienceYears(userData.experience) : null
+            ]
+          );
+          console.log('✅ Candidate profile created');
+        } else {
+          console.log('ℹ️ No skills/experience provided, skipping candidate profile creation');
+        }
       }
 
       return user;
@@ -109,26 +121,26 @@ export class AuthService {
       result.id,
       result.email,
       result.role,
-      result.first_name,
-      result.last_name
+      result.firstName,
+      result.lastName
     );
 
-    // Remove sensitive data from user object
-    const { password_hash, password_reset_token, password_reset_expires, ...safeUser } = result;
+    // Remove sensitive data from user object - database returns snake_case, we need camelCase
+    const { passwordHash, passwordResetToken, passwordResetExpires, ...safeUser } = result;
 
     return {
       user: {
         id: safeUser.id,
         email: safeUser.email,
-        firstName: safeUser.first_name,
-        lastName: safeUser.last_name,
+        firstName: safeUser.firstName,
+        lastName: safeUser.lastName,
         phone: safeUser.phone,
         role: safeUser.role,
-        avatarUrl: safeUser.avatar_url,
-        isActive: safeUser.is_active,
-        isEmailVerified: safeUser.is_email_verified,
-        createdAt: safeUser.created_at,
-        updatedAt: safeUser.updated_at
+        avatarUrl: safeUser.avatarUrl,
+        isActive: safeUser.isActive,
+        isEmailVerified: safeUser.isEmailVerified,
+        createdAt: safeUser.createdAt,
+        updatedAt: safeUser.updatedAt
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

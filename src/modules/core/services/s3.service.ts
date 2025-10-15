@@ -113,9 +113,9 @@ export class S3Service {
     try {
       await this.client.send(command);
       
-      // Return public URL
+      // Return public URL - For Cloudflare R2, public URL should NOT include bucket name
       const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
-      return `${cleanDomain}/${process.env.S3_BUCKET_NAME}/${destinationKey}`;
+      return `${cleanDomain}/${destinationKey}`;
     } catch (error) {
       console.error('S3 copy error:', error);
       throw new Error('Failed to copy file in S3');
@@ -123,13 +123,25 @@ export class S3Service {
   }
 
   static getPublicUrl(key: string): string {
+    // For Cloudflare R2, public URL should NOT include bucket name
     const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
-    return `${cleanDomain}/${process.env.S3_BUCKET_NAME}/${key}`;
+    return `${cleanDomain}/${key}`;
   }
 
   static getFileKeyFromUrl(url: string): string {
+    // Handle both old URLs (with bucket name) and new URLs (without bucket name)
     const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
-    const baseUrl = `${cleanDomain}/${process.env.S3_BUCKET_NAME}/`;
-    return url.replace(baseUrl, '');
+    
+    // Try removing bucket name first (old format)
+    const baseUrlWithBucket = `${cleanDomain}/${process.env.S3_BUCKET_NAME}/`;
+    let key = url.replace(baseUrlWithBucket, '');
+    
+    // If bucket name wasn't found, try without bucket name (new format)
+    const baseUrlWithoutBucket = `${cleanDomain}/`;
+    if (key === url) {
+      key = url.replace(baseUrlWithoutBucket, '');
+    }
+    
+    return key;
   }
 }

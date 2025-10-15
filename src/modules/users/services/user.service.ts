@@ -180,7 +180,7 @@ export class UserService {
       throw new AppError('User not found', 404);
     }
     
-    // Update profile data if provided
+    // Update profile data if provided - USE UPSERT TO CREATE IF NOT EXISTS
     if (updatedUser.role === 'supplier' && (companyName || businessType || serviceCategories || licenseNumber)) {
       // Convert serviceCategories string to PostgreSQL array
       let processedServiceCategories = null;
@@ -191,38 +191,42 @@ export class UserService {
       }
 
       await query(`
-        UPDATE supplier_profiles 
-        SET company_name = COALESCE($1, company_name),
-            business_type = COALESCE($2, business_type),
-            service_categories = COALESCE($3::text[], $4::text[]),
-            license_number = COALESCE($5, license_number)
-        WHERE user_id = $6
-      `, [companyName, businessType, processedServiceCategories, processedServiceCategories, licenseNumber, id]);
+        INSERT INTO supplier_profiles (user_id, company_name, business_type, service_categories, license_number)
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), COALESCE($4::text[], '{}'), COALESCE($5, ''))
+        ON CONFLICT (user_id) DO UPDATE SET
+          company_name = COALESCE(EXCLUDED.company_name, supplier_profiles.company_name),
+          business_type = COALESCE(EXCLUDED.business_type, supplier_profiles.business_type),
+          service_categories = COALESCE(EXCLUDED.service_categories, supplier_profiles.service_categories),
+          license_number = COALESCE(EXCLUDED.license_number, supplier_profiles.license_number)
+      `, [id, companyName, businessType, processedServiceCategories, licenseNumber]);
     } else if (updatedUser.role === 'client' && (companyName || industry || companySize || address || website)) {
       await query(`
-        UPDATE client_profiles 
-        SET company_name = COALESCE($1, company_name),
-            industry = COALESCE($2, industry),
-            company_size = COALESCE($3, company_size),
-            address = COALESCE($4, address),
-            website = COALESCE($5, website)
-        WHERE user_id = $6
-      `, [companyName, industry, companySize, address, website, id]);
+        INSERT INTO client_profiles (user_id, company_name, industry, company_size, address, website)
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), COALESCE($4, ''), COALESCE($5, ''), COALESCE($6, ''))
+        ON CONFLICT (user_id) DO UPDATE SET
+          company_name = COALESCE(EXCLUDED.company_name, client_profiles.company_name),
+          industry = COALESCE(EXCLUDED.industry, client_profiles.industry),
+          company_size = COALESCE(EXCLUDED.company_size, client_profiles.company_size),
+          address = COALESCE(EXCLUDED.address, client_profiles.address),
+          website = COALESCE(EXCLUDED.website, client_profiles.website)
+      `, [id, companyName, industry, companySize, address, website]);
     } else if (updatedUser.role === 'employee' && (department || position || salary)) {
       await query(`
-        UPDATE employee_profiles 
-        SET department = COALESCE($1, department),
-            position = COALESCE($2, position),
-            salary = COALESCE($3, salary)
-        WHERE user_id = $4
-      `, [department, position, salary, id]);
+        INSERT INTO employee_profiles (user_id, department, position, salary)
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), COALESCE($4, 0))
+        ON CONFLICT (user_id) DO UPDATE SET
+          department = COALESCE(EXCLUDED.department, employee_profiles.department),
+          position = COALESCE(EXCLUDED.position, employee_profiles.position),
+          salary = COALESCE(EXCLUDED.salary, employee_profiles.salary)
+      `, [id, department, position, salary]);
     } else if (updatedUser.role === 'candidate' && (skills || experienceYears)) {
       await query(`
-        UPDATE candidate_profiles 
-        SET skills = COALESCE($1, skills),
-            experience_years = COALESCE($2, experience_years)
-        WHERE user_id = $3
-      `, [skills, experienceYears, id]);
+        INSERT INTO candidate_profiles (user_id, skills, experience_years)
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, 0))
+        ON CONFLICT (user_id) DO UPDATE SET
+          skills = COALESCE(EXCLUDED.skills, candidate_profiles.skills),
+          experience_years = COALESCE(EXCLUDED.experience_years, candidate_profiles.experience_years)
+      `, [id, skills, experienceYears]);
     }
     
     // Remove sensitive data

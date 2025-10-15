@@ -50,7 +50,9 @@ export class S3Service {
       if (isPublic) {
         const publicDomain = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
         // For Cloudflare R2, public URL should NOT include bucket name
-        const url = `${publicDomain}/${key}`;
+        // Ensure no double slash by removing trailing slash from domain if present
+        const cleanDomain = publicDomain.replace(/\/$/, '');
+        const url = `${cleanDomain}/${key}`;
         return url;
       }
       
@@ -112,7 +114,8 @@ export class S3Service {
       await this.client.send(command);
       
       // Return public URL
-      return `${process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_NAME}/${destinationKey}`;
+      const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
+      return `${cleanDomain}/${process.env.S3_BUCKET_NAME}/${destinationKey}`;
     } catch (error) {
       console.error('S3 copy error:', error);
       throw new Error('Failed to copy file in S3');
@@ -120,11 +123,13 @@ export class S3Service {
   }
 
   static getPublicUrl(key: string): string {
-    return `${process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_NAME}/${key}`;
+    const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
+    return `${cleanDomain}/${process.env.S3_BUCKET_NAME}/${key}`;
   }
 
   static getFileKeyFromUrl(url: string): string {
-    const baseUrl = `${process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_NAME}/`;
+    const cleanDomain = (process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT).replace(/\/$/, '');
+    const baseUrl = `${cleanDomain}/${process.env.S3_BUCKET_NAME}/`;
     return url.replace(baseUrl, '');
   }
 }

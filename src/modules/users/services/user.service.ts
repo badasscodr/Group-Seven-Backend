@@ -202,11 +202,11 @@ export class UserService {
 
       await query(`
         INSERT INTO supplier_profiles (user_id, company_name, business_type, service_categories, license_number)
-        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), $4::text[], COALESCE($5, ''))
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), $4, COALESCE($5, ''))
         ON CONFLICT (user_id) DO UPDATE SET
           company_name = COALESCE(EXCLUDED.company_name, supplier_profiles.company_name),
           business_type = COALESCE(EXCLUDED.business_type, supplier_profiles.business_type),
-          service_categories = COALESCE($4::text[], supplier_profiles.service_categories),
+          service_categories = COALESCE(EXCLUDED.service_categories, supplier_profiles.service_categories),
           license_number = COALESCE(EXCLUDED.license_number, supplier_profiles.license_number)
       `, [id, companyName, businessType, processedServiceCategories || '{}', licenseNumber]);
     } else if (updatedUser.role === 'client' && (companyName || industry || companySize || address || website)) {
@@ -230,13 +230,21 @@ export class UserService {
           salary = COALESCE(EXCLUDED.salary, employee_profiles.salary)
       `, [id, department, position, salary]);
     } else if (updatedUser.role === 'candidate' && (skills || experienceYears)) {
+      // Convert skills string to PostgreSQL array
+      let processedSkills = null;
+      if (skills && skills.trim()) {
+        // Split by comma and create proper PostgreSQL array string
+        const skillArray = skills.split(',').map(skill => skill.trim()).filter(skill => skill);
+        processedSkills = `{${skillArray.join(',')}}`;
+      }
+
       await query(`
         INSERT INTO candidate_profiles (user_id, skills, experience_years)
-        VALUES ($1, COALESCE($2, ''), COALESCE($3, 0))
+        VALUES ($1, $2, COALESCE($3, 0))
         ON CONFLICT (user_id) DO UPDATE SET
           skills = COALESCE(EXCLUDED.skills, candidate_profiles.skills),
           experience_years = COALESCE(EXCLUDED.experience_years, candidate_profiles.experience_years)
-      `, [id, skills, experienceYears]);
+      `, [id, processedSkills || '{}', experienceYears]);
     }
     
     // Remove sensitive data
@@ -455,6 +463,7 @@ export class UserService {
     return safeUser;
   }
 
+
   static async getOnlineUsers(): Promise<Omit<User, 'passwordHash'>[]> {
     // This would typically integrate with Socket.IO to get actually online users
     // For now, return recently active users
@@ -474,4 +483,5 @@ export class UserService {
       return safeUser;
     });
   }
+
 }

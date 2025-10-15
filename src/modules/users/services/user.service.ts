@@ -72,13 +72,23 @@ export class UserService {
         contact_person: result.rows[0].contact_person
       };
     } else if (userData.role === 'supplier') {
+      // Convert PostgreSQL array to string for service_categories
+      let serviceCategoriesString = '';
+      if (result.rows[0].service_categories) {
+        if (Array.isArray(result.rows[0].service_categories)) {
+          serviceCategoriesString = result.rows[0].service_categories.join(', ');
+        } else {
+          serviceCategoriesString = result.rows[0].service_categories;
+        }
+      }
+
       profileData = {
         company_name: result.rows[0].supplier_company_name,
         business_type: result.rows[0].supplier_business_type,
         license_number: result.rows[0].license_number,
         trade_license_expiry: result.rows[0].trade_license_expiry,
         insurance_details: result.rows[0].insurance_details,
-        service_categories: result.rows[0].service_categories,
+        service_categories: serviceCategoriesString,
         rating: result.rows[0].rating,
         total_reviews: result.rows[0].total_reviews,
         is_verified: result.rows[0].supplier_verified

@@ -171,7 +171,7 @@ router.put('/profile',
   body('company_name').optional().isString().withMessage('Company name must be a string'),
   body('business_type').optional().isString().withMessage('Business type must be a string'),
   body('license_number').optional().isString().withMessage('License number must be a string'),
-  body('service_categories').optional().isArray().withMessage('Service categories must be an array'),
+  body('service_categories').optional().isString().withMessage('Service categories must be a string'), // Accept string, convert to array in service
   validationMiddleware,
   asyncHandler(async (req: AuthenticatedRequest, res: any) => {
     const profileData = req.body;

@@ -11,7 +11,17 @@ const poolConfig = {
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
   statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '30000'),
   query_timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '30000'),
+  // Add retry settings for Neon
+  application_name: 'group-seven-backend',
+  // Increase connection timeout for Neon reliability
+  connect_timeoutMS: 30000,
 };
+
+// Validate required database config
+if (!poolConfig.connectionString) {
+  console.error('❌ DATABASE_URL is required but not set');
+  process.exit(1);
+}
 
 let pool: Pool;
 
@@ -23,8 +33,6 @@ export const initDatabase = async (): Promise<void> => {
     const client = await pool.connect();
     await client.query('SELECT NOW()');
     client.release();
-    
-    console.log('✅ Database connected successfully');
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     throw error;
@@ -43,33 +51,69 @@ export const getClient = async (): Promise<PoolClient> => {
 };
 
 export const query = async (text: string, params?: any[]): Promise<any> => {
-  const start = Date.now();
-  try {
-    const result = await getPool().query(text, params);
-    const duration = Date.now() - start;
-    console.log('📊 Query executed', { text, duration, rows: result.rowCount });
-    return result;
-  } catch (error) {
-    const duration = Date.now() - start;
-    console.error('❌ Query failed', { text, duration, error });
-    throw error;
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await getPool().query(text, params);
+      return result;
+    } catch (error) {
+      // Check if it's a network/DNS error that can be retried
+      const isRetriableError = error.code === 'EAI_AGAIN' || 
+                           error.code === 'ENOTFOUND' || 
+                           error.code === 'ETIMEDOUT' ||
+                           error.message?.includes('getaddrinfo') ||
+                           error.message?.includes('Connection terminated');
+
+      if (isRetriableError && attempt < maxRetries) {
+        console.warn(`🔄 Database query retry ${attempt}/${maxRetries} due to network error:`, error.code || error.message);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      // For non-retriable errors or last attempt, throw the error
+      console.error('❌ Query failed:', error.message);
+      throw error;
+    }
   }
 };
 
 export { pool };
 
 export const transaction = async <T>(callback: (client: PoolClient) => Promise<T>): Promise<T> => {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      
+      // Check if it's a network/DNS error that can be retried
+      const isRetriableError = error.code === 'EAI_AGAIN' || 
+                           error.code === 'ENOTFOUND' || 
+                           error.code === 'ETIMEDOUT' ||
+                           error.message?.includes('getaddrinfo') ||
+                           error.message?.includes('Connection terminated');
+
+      if (isRetriableError && attempt < maxRetries) {
+        console.warn(`🔄 Transaction retry ${attempt}/${maxRetries} due to network error:`, error.code || error.message);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      // For non-retriable errors or last attempt, throw the error
+      console.error('❌ Transaction failed:', error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 };
 

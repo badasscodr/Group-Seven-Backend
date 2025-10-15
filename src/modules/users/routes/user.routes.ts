@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { UserService } from '../services/user.service';
+import { FileService } from '../../files/services/file.service';
 import { authMiddleware, requireRole } from '../../core/middleware/auth';
 import { validationMiddleware } from '../../core/middleware/validation';
+import { uploadMiddleware } from '../../core/middleware/upload';
 import { asyncHandler } from '../../core/utils/asyncHandler';
 import { ApiResponse, AuthenticatedRequest, UserRole } from '../../core/types';
 
@@ -30,10 +32,39 @@ router.put('/profile',
   body('firstName').optional().isString().trim().isLength({ min: 1, max: 50 }),
   body('lastName').optional().isString().trim().isLength({ min: 1, max: 50 }),
   body('phone').optional().isString().trim(),
-  body('avatarUrl').optional().isURL(),
+  body('avatarUrl').optional().custom((value) => {
+    if (!value || value.trim() === '') return true; // Allow empty values
+    // Validate as URL if provided
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }),
+  // Supplier-specific fields - relaxed validation for user flexibility
+  body('companyName').optional().isString().trim().isLength({ min: 0, max: 255 }), // Allow empty
+  body('businessType').optional().isString().trim().isLength({ min: 0, max: 100 }), // Allow empty
+  body('serviceCategories').optional().isString().trim(), // No length restriction
+  body('licenseNumber').optional().isString().trim(), // No length restriction
+  // Client-specific fields - relaxed validation
+  body('companySize').optional().isString().trim().isLength({ min: 0, max: 50 }), // Allow empty
+  body('industry').optional().isString().trim().isLength({ min: 0, max: 100 }), // Allow empty
+  body('website').optional().isURL(), // Only validate if provided
+  body('address').optional().isString().trim(), // No length restriction
+  // Employee-specific fields
+  body('department').optional().isString().trim().isLength({ min: 0, max: 100 }), // Allow empty
+  body('position').optional().isString().trim().isLength({ min: 0, max: 100 }), // Allow empty
+  body('salary').optional().isNumeric(), // Numeric check only
+  // Candidate-specific fields
+  body('skills').optional().isString().trim(), // No length restriction
+  body('experienceYears').optional().isNumeric(), // Numeric check only
+  body('resumeUrl').optional().isURL(), // Only validate if provided
+  body('portfolioUrl').optional().isURL(), // Only validate if provided
+  body('education').optional().isString().trim(), // No length restriction
   validationMiddleware,
   asyncHandler(async (req: AuthenticatedRequest, res: any) => {
-    const user = await UserService.updateProfile(req.user!.id, req.body);
+    const user = await UserService.updateUser(req.user!.id, req.body);
     
     const response: ApiResponse = {
       success: true,
@@ -42,6 +73,55 @@ router.put('/profile',
     };
     
     res.status(200).json(response);
+  })
+);
+
+// Upload avatar
+router.put('/avatar',
+  authMiddleware,
+  uploadMiddleware.single('avatar'),
+  asyncHandler(async (req: AuthenticatedRequest, res: any) => {
+    if (!req.file) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'No file uploaded'
+      };
+      return res.status(400).json(response);
+    }
+
+    try {
+      // Upload to S3/R2 using FileService
+      const fileRecord = await FileService.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        req.user!.id,
+        { isPublic: true }
+      );
+
+      // Update user avatar URL
+      const user = await UserService.updateUser(req.user!.id, {
+        avatarUrl: fileRecord.s3Url
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'Avatar uploaded successfully',
+        data: {
+          avatarUrl: fileRecord.s3Url,
+          user
+        }
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error('❌ Avatar upload failed:', error.message);
+      const response: ApiResponse = {
+        success: false,
+        error: `Failed to upload avatar: ${error.message}`
+      };
+      res.status(500).json(response);
+    }
   })
 );
 
@@ -91,7 +171,16 @@ router.post('/',
   body('lastName').isString().trim().isLength({ min: 1, max: 50 }),
   body('role').isIn(['admin', 'employee', 'client', 'supplier']),
   body('phone').optional().isString().trim(),
-  body('avatarUrl').optional().isURL(),
+  body('avatarUrl').optional().custom((value) => {
+    if (!value || value.trim() === '') return true; // Allow empty values
+    // Validate as URL if provided
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }),
   validationMiddleware,
   asyncHandler(async (req, res) => {
     const user = await UserService.createUser(req.body);
@@ -108,7 +197,16 @@ router.put('/:userId',
   body('lastName').optional().isString().trim().isLength({ min: 1, max: 50 }),
   body('role').optional().isIn(['admin', 'employee', 'client', 'supplier']),
   body('phone').optional().isString().trim(),
-  body('avatarUrl').optional().isURL(),
+  body('avatarUrl').optional().custom((value) => {
+    if (!value || value.trim() === '') return true; // Allow empty values
+    // Validate as URL if provided
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }),
   body('isActive').optional().isBoolean(),
   validationMiddleware,
   asyncHandler(async (req, res) => {

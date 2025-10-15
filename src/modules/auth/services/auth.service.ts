@@ -57,22 +57,13 @@ export class AuthService {
       throw new AppError('Email already registered', 409);
     }
 
-    console.log('🔐 Starting user registration:', { email: userData.email, role: userData.role });
-
     // Create user and role-specific profile in a transaction
     const result = await transaction(async (client) => {
-      console.log('🔐 Creating user with AuthModel...');
-      
       // Use AuthModel.create which hashes the password properly
       const user = await AuthModel.create(userData);
-      console.log('✅ User created successfully:', { id: user.id, email: user.email, role: user.role });
 
       // Create role-specific profile (only if relevant data provided)
       if (userData.role === 'client') {
-        console.log('🏢 Creating client profile with data:', { 
-          companyName: userData.companyName, 
-          businessType: userData.businessType 
-        });
         
         // Only create client profile if company data is provided
         if (userData.companyName || userData.businessType) {

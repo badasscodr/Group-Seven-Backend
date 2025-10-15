@@ -1,17 +1,122 @@
 import { UserModel, User, UserFilters } from '../models/user.model';
 import { AppError } from '../../core/middleware/errorHandler';
 import { PaginationQuery } from '../../core/types';
+import { UserRole } from '../../core/types';
+import { query } from '../../core/config/database';
+import { UpdateUserData } from '../types/user.types';
 
 export class UserService {
   static async getUserById(id: string): Promise<Omit<User, 'passwordHash'>> {
-    const user = await UserModel.findById(id);
-    if (!user) {
+    // Get complete user profile with role-specific data
+    const result = await query(`
+      SELECT 
+        u.id, u.email, u.role, u.first_name, u.last_name, u.phone, u.avatar_url,
+        u.is_active, u.is_email_verified, u.created_at, u.updated_at, u.last_login,
+        -- Client profile data
+        cp.company_name, cp.industry, cp.company_size, cp.address, cp.city, cp.country,
+        cp.website, cp.business_license, cp.contact_person,
+        -- Supplier profile data
+        sp.company_name as supplier_company_name, sp.business_type as supplier_business_type,
+        sp.license_number, sp.trade_license_expiry, sp.insurance_details, sp.service_categories,
+        sp.rating, sp.total_reviews, sp.is_verified as supplier_verified,
+        -- Employee profile data
+        ep.employee_id, ep.department, ep.position, ep.hire_date, ep.salary,
+        ep.visa_status, ep.visa_expiry, ep.passport_number,
+        ep.emergency_contact_name, ep.emergency_contact_phone,
+        -- Candidate profile data
+        cand.resume_url, cand.portfolio_url, cand.linkedin_url, cand.experience_years,
+        cand.desired_salary_min, cand.desired_salary_max, cand.location_preference,
+        cand.job_type_preference, cand.skills, cand.languages, cand.availability_date,
+        cand.gender, cand.date_of_birth
+      FROM users u
+      LEFT JOIN client_profiles cp ON u.id = cp.user_id
+      LEFT JOIN supplier_profiles sp ON u.id = sp.user_id
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      LEFT JOIN candidate_profiles cand ON u.id = cand.user_id
+      WHERE u.id = $1
+    `, [id]);
+    
+    if (result.rows.length === 0) {
       throw new AppError('User not found', 404);
     }
-
-    // Remove sensitive data
-    const { passwordHash, ...safeUser } = user;
-    return safeUser;
+    
+    // Map the row to user object
+    const userData = {
+      id: result.rows[0].id,
+      email: result.rows[0].email,
+      role: result.rows[0].role,
+      firstName: result.rows[0].first_name,
+      lastName: result.rows[0].last_name,
+      phone: result.rows[0].phone,
+      avatarUrl: result.rows[0].avatar_url,
+      isActive: result.rows[0].is_active,
+      isEmailVerified: result.rows[0].is_email_verified,
+      createdAt: result.rows[0].created_at,
+      updatedAt: result.rows[0].updated_at,
+      lastLogin: result.rows[0].last_login
+    };
+    
+    // Add role-specific profile data
+    let profileData = {};
+    
+    if (userData.role === 'client') {
+      profileData = {
+        company_name: result.rows[0].company_name,
+        industry: result.rows[0].industry,
+        company_size: result.rows[0].company_size,
+        address: result.rows[0].address,
+        city: result.rows[0].city,
+        country: result.rows[0].country,
+        website: result.rows[0].website,
+        business_license: result.rows[0].business_license,
+        contact_person: result.rows[0].contact_person
+      };
+    } else if (userData.role === 'supplier') {
+      profileData = {
+        company_name: result.rows[0].supplier_company_name,
+        business_type: result.rows[0].supplier_business_type,
+        license_number: result.rows[0].license_number,
+        trade_license_expiry: result.rows[0].trade_license_expiry,
+        insurance_details: result.rows[0].insurance_details,
+        service_categories: result.rows[0].service_categories,
+        rating: result.rows[0].rating,
+        total_reviews: result.rows[0].total_reviews,
+        is_verified: result.rows[0].supplier_verified
+      };
+    } else if (userData.role === 'employee') {
+      profileData = {
+        employee_id: result.rows[0].employee_id,
+        department: result.rows[0].department,
+        position: result.rows[0].position,
+        hire_date: result.rows[0].hire_date,
+        salary: result.rows[0].salary,
+        visa_status: result.rows[0].visa_status,
+        visa_expiry: result.rows[0].visa_expiry,
+        passport_number: result.rows[0].passport_number,
+        emergency_contact_name: result.rows[0].emergency_contact_name,
+        emergency_contact_phone: result.rows[0].emergency_contact_phone
+      };
+    } else if (userData.role === 'candidate') {
+      profileData = {
+        resume_url: result.rows[0].resume_url,
+        portfolio_url: result.rows[0].portfolio_url,
+        linkedin_url: result.rows[0].linkedin_url,
+        experience_years: result.rows[0].experience_years,
+        desired_salary_min: result.rows[0].desired_salary_min,
+        desired_salary_max: result.rows[0].desired_salary_max,
+        location_preference: result.rows[0].location_preference,
+        job_type_preference: result.rows[0].job_type_preference,
+        skills: result.rows[0].skills,
+        languages: result.rows[0].languages,
+        availability_date: result.rows[0].availability_date,
+        gender: result.rows[0].gender,
+        date_of_birth: result.rows[0].date_of_birth
+      };
+    }
+    
+    // Remove sensitive data and return complete profile
+    const { passwordHash, ...safeUser } = userData as any;
+    return { ...safeUser, profile: profileData } as any;
   }
 
   static async getUserByEmail(email: string): Promise<Omit<User, 'passwordHash'> | null> {
@@ -52,17 +157,76 @@ export class UserService {
     };
   }
 
-  static async updateUser(id: string, userData: Partial<User>): Promise<Omit<User, 'passwordHash'>> {
-    // Don't allow updating sensitive fields through this method
-    const { passwordHash, email, role, createdAt, updatedAt, ...allowedUpdates } = userData as any;
-
+  static async updateUser(id: string, userData: UpdateUserData): Promise<Omit<User, 'passwordHash'>> {
+    // Extract profile-specific fields
+    const { 
+      companyName, businessType, serviceCategories, licenseNumber, 
+      address, companySize, industry, website,
+      department, position, salary,
+      skills, experienceYears,
+      // Remove avatarUrl from extraction so it stays in basicUserData
+    } = userData;
+    
+    // Update basic user data first (including avatarUrl)
+    const { passwordHash, email, role, createdAt, updatedAt, ...allowedUpdates } = userData;
     const user = await UserModel.update(id, allowedUpdates);
     if (!user) {
       throw new AppError('User not found', 404);
     }
+    
+    // Get user role from updated user
+    const updatedUser = await UserModel.findById(id);
+    if (!updatedUser) {
+      throw new AppError('User not found', 404);
+    }
+    
+    // Update profile data if provided
+    if (updatedUser.role === 'supplier' && (companyName || businessType || serviceCategories || licenseNumber)) {
+      // Convert serviceCategories string to PostgreSQL array
+      let processedServiceCategories = null;
+      if (serviceCategories && serviceCategories.trim()) {
+        // Split by comma and create proper PostgreSQL array string
+        const categories = serviceCategories.split(',').map(cat => cat.trim()).filter(cat => cat);
+        processedServiceCategories = `{${categories.join(',')}}`;
+      }
 
+      await query(`
+        UPDATE supplier_profiles 
+        SET company_name = COALESCE($1, company_name),
+            business_type = COALESCE($2, business_type),
+            service_categories = COALESCE($3::text[], $4::text[]),
+            license_number = COALESCE($5, license_number)
+        WHERE user_id = $6
+      `, [companyName, businessType, processedServiceCategories, processedServiceCategories, licenseNumber, id]);
+    } else if (updatedUser.role === 'client' && (companyName || industry || companySize || address || website)) {
+      await query(`
+        UPDATE client_profiles 
+        SET company_name = COALESCE($1, company_name),
+            industry = COALESCE($2, industry),
+            company_size = COALESCE($3, company_size),
+            address = COALESCE($4, address),
+            website = COALESCE($5, website)
+        WHERE user_id = $6
+      `, [companyName, industry, companySize, address, website, id]);
+    } else if (updatedUser.role === 'employee' && (department || position || salary)) {
+      await query(`
+        UPDATE employee_profiles 
+        SET department = COALESCE($1, department),
+            position = COALESCE($2, position),
+            salary = COALESCE($3, salary)
+        WHERE user_id = $4
+      `, [department, position, salary, id]);
+    } else if (updatedUser.role === 'candidate' && (skills || experienceYears)) {
+      await query(`
+        UPDATE candidate_profiles 
+        SET skills = COALESCE($1, skills),
+            experience_years = COALESCE($2, experience_years)
+        WHERE user_id = $3
+      `, [skills, experienceYears, id]);
+    }
+    
     // Remove sensitive data
-    const { passwordHash: _, ...safeUser } = user;
+    const { passwordHash: _, ...safeUser } = updatedUser as any;
     return safeUser;
   }
 

@@ -27,23 +27,28 @@ export class FileService {
     const fileName = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const s3Key = `uploads/${userId}/${fileName}`;
 
-    // Upload to S3
-    const s3Url = await S3Service.uploadFile(file, s3Key, mimeType, options.isPublic);
+    try {
+      // Upload to S3
+      const s3Url = await S3Service.uploadFile(file, s3Key, mimeType, options.isPublic);
 
-    // Create file record
-    const fileRecord = await FileModel.create({
-      fileName,
-      originalName,
-      mimeType,
-      fileSize: file.length,
-      s3Key,
-      s3Url,
-      isPublic: options.isPublic || false,
-      folderId: options.folderId,
-      uploadedBy: userId
-    });
+      // Create file record
+      const fileRecord = await FileModel.create({
+        fileName,
+        originalName,
+        mimeType,
+        fileSize: file.length,
+        s3Key,
+        s3Url,
+        isPublic: options.isPublic || false,
+        folderId: options.folderId,
+        uploadedBy: userId
+      });
 
-    return fileRecord;
+      return fileRecord;
+    } catch (error) {
+      console.error('❌ FileService upload failed:', error.message);
+      throw error;
+    }
   }
 
   static async getFile(fileId: string, userId?: string): Promise<FileUpload | null> {

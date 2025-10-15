@@ -14,12 +14,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
   try {
     const token = JwtUtils.extractTokenFromHeader(req.headers.authorization);
     
-    console.log('🔍 Backend Auth Check:');
-    console.log('  - Authorization header:', req.headers.authorization);
-    console.log('  - Extracted token:', token ? `${token.substring(0, 20)}...` : 'null');
-    
     if (!token) {
-      console.log('❌ No token found');
       res.status(401).json({
         success: false,
         error: 'Access token required'
@@ -28,15 +23,11 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     }
 
     const payload = JwtUtils.verifyToken(token);
-    console.log('  - Token payload:', payload);
     
     const { UserService } = await import('../../users/services/user.service');
     const user = await UserService.getUserById(payload.userId);
     
-    console.log('  - User from DB:', user ? { id: user.id, email: user.email, role: user.role, isActive: user.isActive } : 'null');
-    
     if (!user || !user.isActive) {
-      console.log('❌ User not found or inactive');
       res.status(401).json({
         success: false,
         error: 'User not found or inactive'
@@ -50,10 +41,9 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       role: user.role
     };
     
-    console.log('✅ Auth successful for:', { id: user.id, role: user.role });
     next();
   } catch (error) {
-    console.log('❌ Auth error:', error.message);
+    console.error('❌ Auth error:', error.message);
     res.status(401).json({
       success: false,
       error: error instanceof Error ? error.message : 'Authentication failed'

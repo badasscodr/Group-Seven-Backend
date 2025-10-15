@@ -30,7 +30,23 @@ export class FileModel {
     ];
 
     const result = await pool.query(query, values);
-    return result.rows[0];
+    
+    // Map database row (snake_case) to camelCase interface
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      fileName: row.file_name,
+      originalName: row.original_name,
+      mimeType: row.mime_type,
+      fileSize: row.file_size,
+      s3Key: row.s3_key,
+      s3Url: row.s3_url, // ✅ This fixes the issue!
+      uploadedBy: row.uploaded_by,
+      isPublic: row.is_public,
+      downloadCount: row.download_count || 0,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   static async findById(id: string): Promise<FileUpload | null> {

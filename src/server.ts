@@ -11,8 +11,10 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
 import { initDatabase } from './modules/core/config/database';
-import { SocketService } from './modules/messaging/services/socket.service';
+// import { SocketService } from './modules/messaging/services/socket.service';
 import { errorHandler, notFoundHandler } from './modules/core/middleware/errorHandler';
+import { validateEnv } from './modules/core/config/envValidation';
+import { S3Service } from './modules/core/services/s3.service';
 
 import authRoutes from './modules/auth/routes/auth.routes';
 import userRoutes from './modules/users/routes/user.routes';
@@ -39,6 +41,9 @@ const getAllowedOrigins = () => {
   ];
 };
 
+// Validate environment variables first
+validateEnv();
+
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -51,8 +56,8 @@ const io = new SocketIOServer(httpServer, {
   }
 });
 
-// Initialize Socket Service
-const socketService = new SocketService(io);
+// Temporarily disable Socket Service
+// const socketService = new SocketService(io);
 
 // Temporarily disable rate limiting for development
 const limiter = rateLimit({
@@ -143,9 +148,15 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
+    // Validate environment variables
+    validateEnv();
+
+    // Initialize S3 Service
+    S3Service.initialize();
+
     await initDatabase();
     
-    console.log('✅ Socket.IO initialized for real-time messaging');
+    // console.log('✅ Socket.IO initialized for real-time messaging');
     
     httpServer.listen(PORT, () => {
       console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);

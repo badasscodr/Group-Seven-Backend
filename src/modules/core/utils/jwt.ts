@@ -3,10 +3,17 @@ import { AuthPayload, JwtConfig, UserRole } from '../types';
 
 export class JwtUtils {
   private static config = {
-    secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
+    secret: process.env.JWT_SECRET || '68ae4bd874011cd0bc07dd3b1abbf354', // Use actual secret from production
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   };
+
+  // Validate JWT secret on initialization
+  static {
+    if (!process.env.JWT_SECRET) {
+      console.warn('⚠️ JWT_SECRET not set, using default (not recommended for production)');
+    }
+  }
 
   static generateToken(payload: AuthPayload): string {
     return jwt.sign(payload, this.config.secret, {

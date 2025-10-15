@@ -446,8 +446,15 @@ export class SupplierService {
       }
 
       if (profileData.service_categories !== undefined) {
-        supplierFields.push(`service_categories = $${paramIndex++}`);
-        supplierValues.push(profileData.service_categories);
+        // Convert comma-separated string to PostgreSQL array format
+        let serviceCategoriesArray = null;
+        if (profileData.service_categories && profileData.service_categories.trim()) {
+          const categories = profileData.service_categories.split(',').map(cat => cat.trim()).filter(cat => cat);
+          serviceCategoriesArray = `{${categories.join(',')}}`;
+        }
+        
+        supplierFields.push(`service_categories = COALESCE($${paramIndex++}::text[], $${paramIndex++}::text[])`);
+        supplierValues.push(serviceCategoriesArray, serviceCategoriesArray);
       }
 
       if (supplierFields.length > 0) {

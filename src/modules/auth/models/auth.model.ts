@@ -39,6 +39,28 @@ export interface UpdateUserData {
   lastName?: string;
   phone?: string;
   avatarUrl?: string;
+  // Employee-specific fields
+  employeeId?: string;
+  department?: string;
+  position?: string;
+  hireDate?: string;
+  salary?: number;
+  // Client-specific fields
+  companyName?: string;
+  industry?: string;
+  address?: string;
+  companySize?: string;
+  website?: string;
+  // Supplier-specific fields
+  businessType?: string;
+  licenseNumber?: string;
+  serviceCategories?: string | string[];
+  // Candidate-specific fields
+  skills?: string | string[];
+  experienceYears?: number;
+  resumeUrl?: string;
+  portfolioUrl?: string;
+  education?: string;
 }
 
 export interface LoginCredentials {

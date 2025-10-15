@@ -26,8 +26,8 @@ router.post('/register',
     .isLength({ min: 1, max: 50 })
     .withMessage('Last name must be between 1 and 50 characters'),
   body('role')
-    .isIn(['client', 'supplier', 'candidate'])
-    .withMessage('Role must be client, supplier, or candidate'),
+    .isIn(['admin', 'client', 'supplier', 'candidate', 'employee'])
+    .withMessage('Role must be admin, client, supplier, candidate, or employee'),
   body('phone')
     .optional()
     .isMobilePhone('any')
@@ -43,12 +43,22 @@ router.post('/register',
     .withMessage('Business type must be between 1 and 100 characters'),
   body('serviceCategories')
     .optional()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Service categories must be between 1 and 500 characters'),
+    .isArray()
+    .withMessage('Service categories must be an array'),
+  body('serviceCategories.*')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Each service category must be between 1 and 100 characters'),
   body('skills')
     .optional()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Skills must be between 1 and 500 characters'),
+    .isArray()
+    .withMessage('Skills must be an array'),
+  body('skills.*')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Each skill must be between 1 and 100 characters'),
   body('experience')
     .optional()
     .isIn(['entry', 'junior', 'mid', 'senior', 'expert'])
@@ -247,6 +257,107 @@ router.put('/profile',
     .optional()
     .isURL()
     .withMessage('Avatar must be a valid URL'),
+  
+  // Employee-specific fields
+  body('employeeId')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage('Employee ID must be between 1 and 50 characters'),
+  body('department')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Department must be between 1 and 100 characters'),
+  body('position')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Position must be between 1 and 100 characters'),
+  body('hireDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Valid hire date is required'),
+  body('salary')
+    .optional()
+    .isDecimal()
+    .withMessage('Valid salary is required'),
+  
+  // Client-specific fields
+  body('companyName')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Company name must be between 1 and 255 characters'),
+  body('industry')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Industry must be between 1 and 100 characters'),
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Address must not exceed 500 characters'),
+  body('companySize')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Company size must not exceed 50 characters'),
+  body('website')
+    .optional()
+    .isURL()
+    .withMessage('Website must be a valid URL'),
+  
+  // Supplier-specific fields
+  body('businessType')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Business type must be between 1 and 100 characters'),
+  body('licenseNumber')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('License number must not exceed 100 characters'),
+  body('serviceCategories')
+    .optional()
+    .isArray()
+    .withMessage('Service categories must be an array'),
+  body('serviceCategories.*')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Each service category must be between 1 and 100 characters'),
+  
+  // Candidate-specific fields
+  body('skills')
+    .optional()
+    .isArray()
+    .withMessage('Skills must be an array'),
+  body('skills.*')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Each skill must be between 1 and 100 characters'),
+  body('experienceYears')
+    .optional()
+    .isInt({ min: 0, max: 50 })
+    .withMessage('Experience years must be between 0 and 50'),
+  body('resumeUrl')
+    .optional()
+    .isURL()
+    .withMessage('Resume URL must be a valid URL'),
+  body('portfolioUrl')
+    .optional()
+    .isURL()
+    .withMessage('Portfolio URL must be a valid URL'),
+  body('education')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Education must not exceed 500 characters'),
+  
   validationMiddleware,
   asyncHandler(async (req: any, res: any) => {
     const user = await AuthService.updateProfile(req.user!.id, req.body);

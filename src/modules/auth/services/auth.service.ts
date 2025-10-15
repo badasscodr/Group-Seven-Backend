@@ -261,24 +261,497 @@ export class AuthService {
     }
   }
 
-  static async getProfile(userId: string): Promise<Omit<User, 'passwordHash' | 'passwordResetToken' | 'passwordResetExpires'>> {
-    const user = await AuthModel.findById(userId);
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
+  static async getProfile(userId: string): Promise<any> {
+    return await transaction(async (client) => {
+      // Get basic user info
+      const userResult = await client.query(
+        'SELECT * FROM users WHERE id = $1 AND is_active = true',
+        [userId]
+      );
 
-    const { passwordHash, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-    return safeUser;
+      if (userResult.rows.length === 0) {
+        throw new AppError('User not found', 404);
+      }
+
+      const user = userResult.rows[0];
+      const userRole = user.role;
+
+      // Get role-specific profile data
+      let profileData: any = {};
+
+      if (userRole === 'employee') {
+        const profileResult = await client.query(
+          'SELECT * FROM employee_profiles WHERE user_id = $1',
+          [userId]
+        );
+        if (profileResult.rows.length > 0) {
+          const profile = profileResult.rows[0];
+          profileData = {
+            employeeId: profile.employee_id,
+            department: profile.department,
+            position: profile.position,
+            hireDate: profile.hire_date,
+            salary: profile.salary,
+            visaStatus: profile.visa_status,
+            visaExpiry: profile.visa_expiry,
+            passportNumber: profile.passport_number,
+            emergencyContactName: profile.emergency_contact_name,
+            emergencyContactPhone: profile.emergency_contact_phone,
+            managerId: profile.manager_id,
+          };
+        }
+      } else if (userRole === 'client') {
+        const profileResult = await client.query(
+          'SELECT * FROM client_profiles WHERE user_id = $1',
+          [userId]
+        );
+        if (profileResult.rows.length > 0) {
+          const profile = profileResult.rows[0];
+          profileData = {
+            companyName: profile.company_name,
+            industry: profile.industry,
+            address: profile.address,
+            city: profile.city,
+            country: profile.country,
+            website: profile.website,
+            businessLicense: profile.business_license,
+            contactPerson: profile.contact_person,
+          };
+        }
+      } else if (userRole === 'supplier') {
+        const profileResult = await client.query(
+          'SELECT * FROM supplier_profiles WHERE user_id = $1',
+          [userId]
+        );
+        if (profileResult.rows.length > 0) {
+          const profile = profileResult.rows[0];
+          profileData = {
+            companyName: profile.company_name,
+            businessType: profile.business_type,
+            licenseNumber: profile.license_number,
+            tradeLicenseExpiry: profile.trade_license_expiry,
+            insuranceDetails: profile.insurance_details,
+            serviceCategories: profile.service_categories,
+            rating: profile.rating,
+            totalReviews: profile.total_reviews,
+            isVerified: profile.is_verified,
+          };
+        }
+      } else if (userRole === 'candidate') {
+        const profileResult = await client.query(
+          'SELECT * FROM candidate_profiles WHERE user_id = $1',
+          [userId]
+        );
+        if (profileResult.rows.length > 0) {
+          const profile = profileResult.rows[0];
+          profileData = {
+            resumeUrl: profile.resume_url,
+            portfolioUrl: profile.portfolio_url,
+            linkedinUrl: profile.linkedin_url,
+            experienceYears: profile.experience_years,
+            desiredSalaryMin: profile.desired_salary_min,
+            desiredSalaryMax: profile.desired_salary_max,
+            locationPreference: profile.location_preference,
+            jobTypePreference: profile.job_type_preference,
+            skills: profile.skills,
+            languages: profile.languages,
+            availabilityDate: profile.availability_date,
+            gender: profile.gender,
+            dateOfBirth: profile.date_of_birth,
+          };
+        }
+      }
+
+      // Combine user data with role-specific data
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        phone: user.phone,
+        role: user.role,
+        avatarUrl: user.avatar_url,
+        isActive: user.is_active,
+        isEmailVerified: user.is_email_verified,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        lastLogin: user.last_login,
+        ...profileData
+      };
+    });
   }
 
-  static async updateProfile(userId: string, userData: UpdateUserData): Promise<Omit<User, 'passwordHash' | 'passwordResetToken' | 'passwordResetExpires'>> {
-    const user = await AuthModel.update(userId, userData);
-    if (!user) {
-      throw new AppError('User not found', 404);
+  static async updateProfile(userId: string, userData: UpdateUserData): Promise<any> {
+    return await transaction(async (client) => {
+      // Get current user to determine role
+      const userResult = await client.query(
+        'SELECT role FROM users WHERE id = $1 AND is_active = true',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        throw new AppError('User not found', 404);
+      }
+
+      const userRole = userResult.rows[0].role;
+
+      // Update basic user information
+      const basicFields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (userData.firstName !== undefined) {
+        basicFields.push(`first_name = $${paramIndex++}`);
+        values.push(userData.firstName);
+      }
+      if (userData.lastName !== undefined) {
+        basicFields.push(`last_name = $${paramIndex++}`);
+        values.push(userData.lastName);
+      }
+      if (userData.phone !== undefined) {
+        basicFields.push(`phone = $${paramIndex++}`);
+        values.push(userData.phone);
+      }
+      if (userData.avatarUrl !== undefined) {
+        basicFields.push(`avatar_url = $${paramIndex++}`);
+        values.push(userData.avatarUrl);
+      }
+
+      if (basicFields.length > 0) {
+        basicFields.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(userId);
+
+        await client.query(
+          `UPDATE users SET ${basicFields.join(', ')} WHERE id = $${paramIndex}`,
+          values
+        );
+      }
+
+      // Update role-specific profile based on user role
+      if (userRole === 'employee') {
+        await this.updateEmployeeProfile(client, userId, userData);
+      } else if (userRole === 'client') {
+        await this.updateClientProfile(client, userId, userData);
+      } else if (userRole === 'supplier') {
+        await this.updateSupplierProfile(client, userId, userData);
+      } else if (userRole === 'candidate') {
+        await this.updateCandidateProfile(client, userId, userData);
+      }
+
+      // Get complete updated profile data (including role-specific data)
+      return await this.getProfile(userId);
+    });
+  }
+
+  private static async updateEmployeeProfile(client: any, userId: string, userData: any): Promise<void> {
+    // Check if employee profile exists
+    const profileResult = await client.query(
+      'SELECT id FROM employee_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    const employeeFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (userData.employeeId !== undefined) {
+      employeeFields.push(`employee_id = $${paramIndex++}`);
+      values.push(userData.employeeId);
+    }
+    if (userData.department !== undefined) {
+      employeeFields.push(`department = $${paramIndex++}`);
+      values.push(userData.department);
+    }
+    if (userData.position !== undefined) {
+      employeeFields.push(`position = $${paramIndex++}`);
+      values.push(userData.position);
+    }
+    if (userData.hireDate !== undefined) {
+      employeeFields.push(`hire_date = $${paramIndex++}`);
+      values.push(userData.hireDate);
+    }
+    if (userData.salary !== undefined) {
+      employeeFields.push(`salary = $${paramIndex++}`);
+      values.push(userData.salary);
     }
 
-    const { passwordHash, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-    return safeUser;
+    if (employeeFields.length > 0) {
+      employeeFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(userId);
+
+      if (profileResult.rows.length > 0) {
+        // Update existing profile
+        await client.query(
+          `UPDATE employee_profiles SET ${employeeFields.join(', ')} WHERE user_id = $${paramIndex}`,
+          values
+        );
+      } else {
+        // Create new profile if it doesn't exist
+        // Remove the last field (updated_at) from the fields list
+        const insertFields = employeeFields.slice(0, -1); 
+        const insertValues = values.slice(0, -1); // Remove user_id
+        
+        if (insertFields.length > 0) {
+          await client.query(
+            `INSERT INTO employee_profiles (user_id, ${insertFields.join(', ')}, created_at, updated_at) 
+             VALUES ($1, ${insertFields.map((_, i) => `$${i + 2}`).join(', ')}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [userId, ...insertValues]
+          );
+        } else {
+          // If no fields to insert, just create a basic profile
+          await client.query(
+            `INSERT INTO employee_profiles (user_id, created_at, updated_at) 
+             VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [userId]
+          );
+        }
+      }
+    }
+  }
+
+  private static async updateClientProfile(client: any, userId: string, userData: any): Promise<void> {
+    const profileResult = await client.query(
+      'SELECT id FROM client_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    if (profileResult.rows.length > 0) {
+      // Update existing profile
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (userData.companyName !== undefined) {
+        updateFields.push(`company_name = $${paramIndex++}`);
+        values.push(userData.companyName);
+      }
+      if (userData.industry !== undefined) {
+        updateFields.push(`industry = $${paramIndex++}`);
+        values.push(userData.industry);
+      }
+      if (userData.address !== undefined) {
+        updateFields.push(`address = $${paramIndex++}`);
+        values.push(userData.address);
+      }
+      if (userData.companySize !== undefined) {
+        updateFields.push(`company_size = $${paramIndex++}`);
+        values.push(userData.companySize);
+      }
+      if (userData.website !== undefined) {
+        updateFields.push(`website = $${paramIndex++}`);
+        values.push(userData.website);
+      }
+
+      if (updateFields.length > 0) {
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(userId);
+
+        const updateQuery = `UPDATE client_profiles SET ${updateFields.join(', ')} WHERE user_id = $${paramIndex}`;
+        await client.query(updateQuery, values);
+      }
+    } else {
+      // Create new profile - simpler approach
+      const insertFields: string[] = ['user_id'];
+      const insertValues: any[] = [userId];
+      const placeholders: string[] = ['$1'];
+
+      if (userData.companyName !== undefined) {
+        insertFields.push('company_name');
+        insertValues.push(userData.companyName);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.industry !== undefined) {
+        insertFields.push('industry');
+        insertValues.push(userData.industry);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.address !== undefined) {
+        insertFields.push('address');
+        insertValues.push(userData.address);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.companySize !== undefined) {
+        insertFields.push('company_size');
+        insertValues.push(userData.companySize);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.website !== undefined) {
+        insertFields.push('website');
+        insertValues.push(userData.website);
+        placeholders.push(`$${insertValues.length}`);
+      }
+
+      insertFields.push('created_at', 'updated_at');
+      placeholders.push('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP');
+
+      const insertQuery = `INSERT INTO client_profiles (${insertFields.join(', ')}) VALUES (${placeholders.join(', ')})`;
+      await client.query(insertQuery, insertValues);
+    }
+  }
+
+  private static async updateSupplierProfile(client: any, userId: string, userData: any): Promise<void> {
+    const profileResult = await client.query(
+      'SELECT id FROM supplier_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    const supplierFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (userData.companyName !== undefined) {
+      supplierFields.push(`company_name = $${paramIndex++}`);
+      values.push(userData.companyName);
+    }
+    if (userData.businessType !== undefined) {
+      supplierFields.push(`business_type = $${paramIndex++}`);
+      values.push(userData.businessType);
+    }
+    if (userData.licenseNumber !== undefined) {
+      supplierFields.push(`license_number = $${paramIndex++}`);
+      values.push(userData.licenseNumber);
+    }
+    if (userData.serviceCategories !== undefined) {
+      supplierFields.push(`service_categories = $${paramIndex++}`);
+      // Handle both single string and array inputs
+      const categories = Array.isArray(userData.serviceCategories) 
+        ? userData.serviceCategories 
+        : typeof userData.serviceCategories === 'string' 
+          ? [userData.serviceCategories]
+          : userData.serviceCategories;
+      values.push(categories);
+    }
+
+    if (supplierFields.length > 0) {
+      supplierFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(userId);
+
+      if (profileResult.rows.length > 0) {
+        await client.query(
+          `UPDATE supplier_profiles SET ${supplierFields.join(', ')} WHERE user_id = $${paramIndex}`,
+          values
+        );
+      } else {
+        // Remove the last field (updated_at) from the fields list
+        const insertFields = supplierFields.slice(0, -1); 
+        const insertValues = values.slice(0, -1); // Remove user_id
+        
+        if (insertFields.length > 0) {
+          await client.query(
+            `INSERT INTO supplier_profiles (user_id, ${insertFields.join(', ')}, created_at, updated_at) 
+             VALUES ($1, ${insertFields.map((_, i) => `$${i + 2}`).join(', ')}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [userId, ...insertValues]
+          );
+        } else {
+          // If no fields to insert, just create a basic profile
+          await client.query(
+            `INSERT INTO supplier_profiles (user_id, created_at, updated_at) 
+             VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [userId]
+          );
+        }
+      }
+    }
+  }
+
+  private static async updateCandidateProfile(client: any, userId: string, userData: any): Promise<void> {
+    const profileResult = await client.query(
+      'SELECT id FROM candidate_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    if (profileResult.rows.length > 0) {
+      // Update existing profile
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (userData.skills !== undefined) {
+        updateFields.push(`skills = $${paramIndex++}`);
+        values.push(Array.isArray(userData.skills) ? userData.skills : [userData.skills]);
+      }
+      if (userData.experienceYears !== undefined) {
+        updateFields.push(`experience_years = $${paramIndex++}`);
+        values.push(userData.experienceYears);
+      }
+      if (userData.resumeUrl !== undefined) {
+        updateFields.push(`resume_url = $${paramIndex++}`);
+        values.push(userData.resumeUrl);
+      }
+      if (userData.portfolioUrl !== undefined) {
+        updateFields.push(`portfolio_url = $${paramIndex++}`);
+        values.push(userData.portfolioUrl);
+      }
+      if (userData.education !== undefined) {
+        updateFields.push(`education = $${paramIndex++}`);
+        values.push(userData.education);
+      }
+
+      if (updateFields.length > 0) {
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(userId);
+
+        const updateQuery = `UPDATE candidate_profiles SET ${updateFields.join(', ')} WHERE user_id = $${paramIndex}`;
+        await client.query(updateQuery, values);
+      }
+    } else {
+      // Create new profile - simpler approach
+      const insertFields: string[] = ['user_id'];
+      const insertValues: any[] = [userId];
+      const placeholders: string[] = ['$1'];
+
+      if (userData.skills !== undefined) {
+        insertFields.push('skills');
+        insertValues.push(Array.isArray(userData.skills) ? userData.skills : [userData.skills]);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.experienceYears !== undefined) {
+        insertFields.push('experience_years');
+        insertValues.push(userData.experienceYears);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.resumeUrl !== undefined) {
+        insertFields.push('resume_url');
+        insertValues.push(userData.resumeUrl);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.portfolioUrl !== undefined) {
+        insertFields.push('portfolio_url');
+        insertValues.push(userData.portfolioUrl);
+        placeholders.push(`$${insertValues.length}`);
+      }
+      if (userData.education !== undefined) {
+        insertFields.push('education');
+        insertValues.push(userData.education);
+        placeholders.push(`$${insertValues.length}`);
+      }
+
+      insertFields.push('created_at', 'updated_at');
+      placeholders.push('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP');
+
+      const insertQuery = `INSERT INTO candidate_profiles (${insertFields.join(', ')}) VALUES (${placeholders.join(', ')})`;
+      await client.query(insertQuery, insertValues);
+    }
+  }
+
+  private static mapRowToUser(row: any): User {
+    return {
+      id: row.id,
+      email: row.email,
+      passwordHash: row.password_hash,
+      role: row.role,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      phone: row.phone,
+      avatarUrl: row.avatar_url,
+      isActive: row.is_active,
+      isEmailVerified: row.is_email_verified,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastLogin: row.last_login,
+      passwordResetToken: row.password_reset_token,
+      passwordResetExpires: row.password_reset_expires,
+    };
   }
 
   static async logout(userId: string): Promise<void> {

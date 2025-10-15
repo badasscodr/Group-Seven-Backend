@@ -202,13 +202,13 @@ export class UserService {
 
       await query(`
         INSERT INTO supplier_profiles (user_id, company_name, business_type, service_categories, license_number)
-        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), COALESCE($4::text[], '{}'), COALESCE($5, ''))
+        VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), $4::text[], COALESCE($5, ''))
         ON CONFLICT (user_id) DO UPDATE SET
           company_name = COALESCE(EXCLUDED.company_name, supplier_profiles.company_name),
           business_type = COALESCE(EXCLUDED.business_type, supplier_profiles.business_type),
-          service_categories = COALESCE(EXCLUDED.service_categories, supplier_profiles.service_categories),
+          service_categories = COALESCE($4::text[], supplier_profiles.service_categories),
           license_number = COALESCE(EXCLUDED.license_number, supplier_profiles.license_number)
-      `, [id, companyName, businessType, processedServiceCategories, licenseNumber]);
+      `, [id, companyName, businessType, processedServiceCategories || '{}', licenseNumber]);
     } else if (updatedUser.role === 'client' && (companyName || industry || companySize || address || website)) {
       await query(`
         INSERT INTO client_profiles (user_id, company_name, industry, company_size, address, website)

@@ -56,6 +56,7 @@ router.post('/requests',
   body('deadline').optional().isISO8601().withMessage('Deadline must be a valid date'),
   body('location').optional().isString().withMessage('Location must be a string'),
   body('requirements').optional().isString().withMessage('Requirements must be a string'),
+  body('documentIds').optional().isArray().withMessage('Document IDs must be an array'),
   validationMiddleware,
   asyncHandler(async (req: AuthenticatedRequest, res: any) => {
     const requestData = {

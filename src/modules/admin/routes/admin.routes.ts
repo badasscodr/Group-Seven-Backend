@@ -82,7 +82,7 @@ router.put('/requests/:id/status',
   [
     param('id').isUUID().withMessage('Valid request ID is required'),
     body('status')
-      .isIn(['draft', 'pending', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'])
+      .isIn(['draft', 'pending_admin', 'published', 'assigned', 'in_progress', 'completed', 'cancelled', 'on_hold'])
       .withMessage('Invalid status'),
     body('comment').optional().isString().withMessage('Comment must be a string'),
   ],

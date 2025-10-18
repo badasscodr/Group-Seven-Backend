@@ -127,31 +127,52 @@ export class ServiceRequestService {
       budget_max,
       deadline,
       location,
-      requirements
+      requirements,
+      documentIds
     } = requestData;
 
-    const createQuery = `
-      INSERT INTO service_requests (
-        client_id, title, description, category, priority,
-        budget_min, budget_max, deadline, location, requirements, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft')
-      RETURNING *
-    `;
+    // Start a transaction to ensure data consistency
+    const { transaction } = await import('../../core/config/database');
 
-    const result = await query(createQuery, [
-      clientId,
-      title,
-      description,
-      category,
-      priority,
-      budget_min || null,
-      budget_max || null,
-      deadline || null,
-      location || null,
-      requirements || null
-    ]);
+    return await transaction(async (client) => {
+      // Create the service request
+      const createQuery = `
+        INSERT INTO service_requests (
+          client_id, title, description, category, priority,
+          budget_min, budget_max, deadline, location, requirements, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft')
+        RETURNING *
+      `;
 
-    return result.rows[0];
+      const result = await client.query(createQuery, [
+        clientId,
+        title,
+        description,
+        category,
+        priority,
+        budget_min || null,
+        budget_max || null,
+        deadline || null,
+        location || null,
+        requirements || null
+      ]);
+
+      const serviceRequest = result.rows[0];
+
+      // If there are document IDs, create associations
+      if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+        const documentAssociationQuery = `
+          INSERT INTO service_request_documents (service_request_id, document_id, created_by)
+          VALUES ($1, $2, $3)
+        `;
+
+        for (const documentId of documentIds) {
+          await client.query(documentAssociationQuery, [serviceRequest.id, documentId, clientId]);
+        }
+      }
+
+      return serviceRequest;
+    });
   }
 
   // Get specific service request
@@ -190,8 +211,20 @@ export class ServiceRequestService {
     
     const quotationsResult = await query(quotationsQuery, [requestId]);
 
+    // Get documents for this request
+    const documentsQuery = `
+      SELECT f.id, f.filename, f.original_name, f.mime_type, f.file_size, f.file_url, f.uploaded_at
+      FROM documents f
+      JOIN service_request_documents srd ON f.id = srd.document_id
+      WHERE srd.service_request_id = $1
+      ORDER BY f.uploaded_at DESC
+    `;
+    
+    const documentsResult = await query(documentsQuery, [requestId]);
+
     const request = result.rows[0];
     request.quotations = quotationsResult.rows;
+    request.documents = documentsResult.rows;
 
     return request;
   }
@@ -332,8 +365,25 @@ export class ServiceRequestService {
     params.push(limit, offset);
     const requestsResult = await query(requestsQuery, params);
 
+    // Get documents for each request
+    const requestsWithDocuments = await Promise.all(
+      requestsResult.rows.map(async (request) => {
+        const documentsQuery = `
+          SELECT f.id, f.filename, f.original_name, f.mime_type, f.file_size, f.file_url, f.uploaded_at
+          FROM documents f
+          JOIN service_request_documents srd ON f.id = srd.document_id
+          WHERE srd.service_request_id = $1
+          ORDER BY f.uploaded_at DESC
+        `;
+        
+        const documentsResult = await query(documentsQuery, [request.id]);
+        request.documents = documentsResult.rows;
+        return request;
+      })
+    );
+
     return {
-      requests: requestsResult.rows,
+      requests: requestsWithDocuments,
       pagination: {
         page,
         limit,

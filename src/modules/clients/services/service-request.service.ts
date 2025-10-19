@@ -219,12 +219,29 @@ export class ServiceRequestService {
       WHERE srd.service_request_id = $1
       ORDER BY f.uploaded_at DESC
     `;
-    
+
     const documentsResult = await query(documentsQuery, [requestId]);
+
+    // Process document URLs to ensure they are accessible
+    const processedDocuments = documentsResult.rows.map(doc => {
+      let s3Url = doc.file_url;
+
+      // If file_url doesn't start with http, it's likely an S3 key that needs to be converted to a public URL
+      if (!s3Url.startsWith('http')) {
+        // It's an S3 key, generate public URL using S3Service
+        const S3Service = require('../../core/services/s3.service').S3Service;
+        s3Url = S3Service.getPublicUrl(s3Url);
+      }
+
+      return {
+        ...doc,
+        s3Url // Add s3Url field for frontend compatibility
+      };
+    });
 
     const request = result.rows[0];
     request.quotations = quotationsResult.rows;
-    request.documents = documentsResult.rows;
+    request.documents = processedDocuments;
 
     return request;
   }
@@ -377,7 +394,25 @@ export class ServiceRequestService {
         `;
         
         const documentsResult = await query(documentsQuery, [request.id]);
-        request.documents = documentsResult.rows;
+
+        // Process document URLs to ensure they are accessible
+        const processedDocuments = documentsResult.rows.map(doc => {
+          let s3Url = doc.file_url;
+
+          // If file_url doesn't start with http, it's likely an S3 key that needs to be converted to a public URL
+          if (!s3Url.startsWith('http')) {
+            // It's an S3 key, generate public URL using S3Service
+            const S3Service = require('../../core/services/s3.service').S3Service;
+            s3Url = S3Service.getPublicUrl(s3Url);
+          }
+
+          return {
+            ...doc,
+            s3Url // Add s3Url field for frontend compatibility
+          };
+        });
+
+        request.documents = processedDocuments;
         return request;
       })
     );

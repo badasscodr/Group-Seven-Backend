@@ -36,8 +36,8 @@ router.post('/',
         const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
         const s3Key = `documents/${req.user!.id}/${uniqueFileName}`;
         
-        // Upload to S3
-        const s3Url = await S3Service.uploadFile(file.buffer, s3Key, file.mimetype);
+        // Upload to S3 as public file (documents should be accessible for viewing/downloading)
+        const s3Url = await S3Service.uploadFile(file.buffer, s3Key, file.mimetype, true);
         
         // Insert into documents table
         const insertQuery = `
@@ -54,7 +54,7 @@ router.post('/',
           file.size,
           s3Url,
           req.user!.id,
-          req.body.isPublic === 'true'
+          true // Documents are uploaded as public files for easy access
         ]);
         
         uploadedDocuments.push(result.rows[0]);

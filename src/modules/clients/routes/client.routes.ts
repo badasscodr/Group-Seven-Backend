@@ -5,6 +5,7 @@ import { authenticate } from '../../core/middleware/auth';
 import { validationMiddleware } from '../../core/middleware/validation';
 import { asyncHandler } from '../../core/utils/asyncHandler';
 import { ApiResponse, AuthenticatedRequest } from '../../core/types';
+import { notificationService } from '../../notifications/services/notification.service';
 
 const router = Router();
 
@@ -65,6 +66,31 @@ router.post('/requests',
     };
     
     const result = await ServiceRequestService.createRequest(requestData);
+    
+    // Create notification for admins about new service request
+    try {
+      // Get admin users (you might need to implement a method to get all admins)
+      // For now, we'll create a general notification that can be viewed by admins
+      await notificationService.createNotification({
+        userId: 'admin', // This would need to be updated to actual admin user IDs
+        title: 'New Service Request Created',
+        message: `New service request "${requestData.title}" has been submitted by a client`,
+        type: 'service_request',
+        relatedId: result.id,
+        relatedType: 'service_request',
+        priority: requestData.priority || 'medium',
+        metadata: {
+          clientId: req.user!.id,
+          requestTitle: requestData.title,
+          category: requestData.category
+        }
+      });
+      
+      console.log(`📧 Notification created for admins about new request: ${requestData.title}`);
+    } catch (notificationError) {
+      console.error('Failed to create notification for admins:', notificationError);
+      // Don't fail the request if notification creation fails
+    }
     
     const response: ApiResponse = {
       success: true,

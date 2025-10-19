@@ -23,6 +23,7 @@ import { fileRoutes, folderRoutes, documentsRoutes } from './modules/files';
 import supplierRoutes from './modules/suppliers/routes/supplier.routes';
 import clientRoutes from './modules/clients/routes/client.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
+import { notificationRoutes } from './modules/notifications';
 
 dotenv.config();
 
@@ -145,6 +146,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

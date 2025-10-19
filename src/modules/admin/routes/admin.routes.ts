@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { ServiceRequestService } from '../../clients/services/service-request.service';
+import { notificationService } from '../../notifications/services/notification.service';
 import { authenticate, requireRole } from '../../core/middleware/auth';
 import { validationMiddleware } from '../../core/middleware/validation';
 import { asyncHandler } from '../../core/utils/asyncHandler';
@@ -92,12 +93,51 @@ router.put('/requests/:id/status',
     const { status, comment } = req.body;
     const adminId = req.user!.id;
     
+    // Get the request details before updating to get the old status and client info
+    const allResult = await ServiceRequestService.getAllRequests();
+    const existingRequest = allResult.requests.find((req: any) => req.id === id);
+    
+    if (!existingRequest) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Service request not found'
+        }
+      });
+    }
+    
+    const oldStatus = existingRequest.status;
+    
+    // Update the request status
     const result = await ServiceRequestService.updateRequestStatus(id, status, adminId);
+    
+    // Send notification to the client if status changed
+    if (oldStatus !== status && existingRequest.client_id) {
+      try {
+        await notificationService.createServiceRequestNotification({
+          requestId: id,
+          clientId: existingRequest.client_id,
+          requestTitle: existingRequest.title || 'Service Request',
+          oldStatus,
+          newStatus: status,
+          clientName: existingRequest.client_name || 'Client'
+        });
+        
+        console.log(`📧 Notification sent to client ${existingRequest.client_id} for status change: ${oldStatus} → ${status}`);
+      } catch (notificationError) {
+        console.error('❌ Failed to send notification:', notificationError);
+        // Don't fail the request if notification fails, but log it
+      }
+    }
     
     const response: ApiResponse = {
       success: true,
       message: 'Service request status updated successfully',
-      data: result
+      data: {
+        ...result,
+        notificationSent: oldStatus !== status
+      }
     };
     
     res.status(200).json(response);

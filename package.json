@@ -7,12 +7,7 @@
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "lint": "echo \"No linting configured yet\"",
-    "typecheck": "tsc --noEmit",
-    "init-db": "ts-node src/scripts/initDb.ts",
-    "reset-db": "ts-node src/scripts/resetDb.ts",
-    "check-schema": "ts-node src/scripts/checkSchema.ts",
-    "migrate-file-uploads": "node migrations/003_file_uploads_table.sql | psql $DATABASE_URL",
-    "create-users": "node scripts/create-users.js"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

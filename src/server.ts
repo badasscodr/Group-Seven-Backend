@@ -137,6 +137,7 @@ app.get('/ready', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/messages/conversations', conversationRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/folders', folderRoutes);

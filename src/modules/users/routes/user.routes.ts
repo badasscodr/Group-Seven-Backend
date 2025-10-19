@@ -125,18 +125,6 @@ router.put('/avatar',
   })
 );
 
-// Get user by ID (admin/employee only)
-router.get('/:userId',
-  authMiddleware,
-  requireRole(UserRole.ADMIN, UserRole.EMPLOYEE),
-  param('userId').isUUID(),
-  validationMiddleware,
-  asyncHandler(async (req, res) => {
-    const user = await UserService.getUserById(req.params.userId);
-    res.json(user);
-  })
-);
-
 // Get all users (admin only)
 router.get('/all',
   authMiddleware,
@@ -157,7 +145,24 @@ router.get('/all',
       page: page as number,
       limit: limit as number
     });
-    res.json(result);
+    const response: ApiResponse = {
+      success: true,
+      message: 'Users retrieved successfully',
+      data: result
+    };
+    res.status(200).json(response);
+  })
+);
+
+// Get user by ID (admin/employee only)
+router.get('/:userId',
+  authMiddleware,
+  requireRole(UserRole.ADMIN, UserRole.EMPLOYEE),
+  param('userId').isUUID(),
+  validationMiddleware,
+  asyncHandler(async (req, res) => {
+    const user = await UserService.getUserById(req.params.userId);
+    res.json(user);
   })
 );
 

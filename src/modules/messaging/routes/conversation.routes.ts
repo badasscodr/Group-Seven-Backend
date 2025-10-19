@@ -28,23 +28,6 @@ router.post('/',
   })
 );
 
-// Get conversation by ID
-router.get('/:conversationId',
-  authMiddleware,
-  param('conversationId').isUUID(),
-  validationMiddleware,
-  asyncHandler(async (req, res) => {
-    const conversation = await ConversationService.getConversation(
-      req.params.conversationId, 
-      req.user!.id
-    );
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
-    }
-    res.json(conversation);
-  })
-);
-
 // Get user's conversations
 router.get('/',
   authMiddleware,
@@ -64,6 +47,23 @@ router.get('/',
       search: search as string
     });
     res.json(result);
+  })
+);
+
+// Get conversation by ID
+router.get('/:conversationId',
+  authMiddleware,
+  param('conversationId').isUUID(),
+  validationMiddleware,
+  asyncHandler(async (req, res) => {
+    const conversation = await ConversationService.getConversation(
+      req.params.conversationId,
+      req.user!.id
+    );
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    res.json(conversation);
   })
 );
 

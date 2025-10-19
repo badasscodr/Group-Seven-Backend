@@ -6,15 +6,21 @@ dotenv.config();
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('neon.tech') ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.DB_MAX_CONNECTIONS || '10'),
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
+  max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'), // Increased pool size
+  min: 2, // Minimum connections to maintain
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000'), // Shorter idle timeout
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '15000'), // Longer connection timeout
   statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '30000'),
   query_timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '30000'),
-  // Add retry settings for Neon
+  // Enhanced retry settings for Neon reliability
   application_name: 'group-seven-backend',
-  // Increase connection timeout for Neon reliability
   connect_timeoutMS: 30000,
+  // Additional Neon-specific optimizations
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  // Better connection recovery
+  allowExitOnIdle: false,
+  maxUses: 7500, // Recreate connections after this many uses
 };
 
 // Validate required database config
@@ -28,11 +34,38 @@ let pool: Pool;
 export const initDatabase = async (): Promise<void> => {
   try {
     pool = new Pool(poolConfig);
-    
-    // Test the connection
+
+    // Enhanced connection testing
     const client = await pool.connect();
+
+    // Test basic connectivity
     await client.query('SELECT NOW()');
+
+    // Test authentication user query (most critical for login)
+    await client.query('SELECT COUNT(*) FROM users WHERE is_active = true');
+
     client.release();
+
+    console.log('✅ Database initialized and connection tested successfully');
+
+    // Set up connection monitoring
+    pool.on('connect', (client) => {
+      console.log('🔌 New database client connected');
+    });
+
+    pool.on('acquire', (client) => {
+      console.log('📤 Database client acquired from pool');
+    });
+
+    pool.on('remove', (client) => {
+      console.log('🗑️ Database client removed from pool');
+    });
+
+    pool.on('error', (err, client) => {
+      console.error('❌ Database pool error:', err);
+      // Don't exit the process, just log the error for recovery
+    });
+
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     throw error;

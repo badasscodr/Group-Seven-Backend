@@ -24,6 +24,7 @@ import supplierRoutes from './modules/suppliers/routes/supplier.routes';
 import clientRoutes from './modules/clients/routes/client.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
 import { notificationRoutes } from './modules/notifications';
+import healthRoutes from './modules/core/routes/health';
 
 dotenv.config();
 
@@ -120,6 +121,7 @@ const swaggerOptions = {
 const specs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
+// Simple health check (commenting out complex health check for now)
 app.get('/health', (req, res) => {
   res.json({
     success: true,

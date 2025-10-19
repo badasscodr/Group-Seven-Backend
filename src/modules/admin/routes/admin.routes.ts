@@ -123,7 +123,29 @@ router.put('/requests/:id/status',
           newStatus: status,
           clientName: existingRequest.client_name || 'Client'
         });
-        
+
+        // Send real-time notification via Socket.IO
+        try {
+          const { socketService } = await import('../../shared/services/socket.service');
+          socketService.sendNotification(existingRequest.client_id, {
+            type: 'service_request',
+            data: {
+              title: 'Request Status Updated',
+              message: `Your service request "${existingRequest.title}" is now ${status.replace('_', ' ')}`,
+              priority: status === 'approved' ? 'high' : status === 'rejected' ? 'urgent' : 'medium',
+              metadata: {
+                requestId: id,
+                oldStatus,
+                newStatus: status,
+                clientName: existingRequest.client_name
+              }
+            }
+          });
+          console.log(`📡 Real-time notification sent to client ${existingRequest.client_id}`);
+        } catch (socketError) {
+          console.warn('Socket.IO notification failed:', socketError);
+        }
+
         console.log(`📧 Notification sent to client ${existingRequest.client_id} for status change: ${oldStatus} → ${status}`);
       } catch (notificationError) {
         console.error('❌ Failed to send notification:', notificationError);

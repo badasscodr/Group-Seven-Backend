@@ -1,8 +1,9 @@
 import { pool } from '../../core/config/database';
-import { 
-  Notification, 
-  CreateNotificationDto, 
-  UpdateNotificationDto, 
+import { UserRole } from '../../core/types';
+import {
+  Notification,
+  CreateNotificationDto,
+  UpdateNotificationDto,
   NotificationQueryOptions,
   NotificationResponse,
   SingleNotificationResponse,
@@ -13,6 +14,87 @@ import {
 } from '../models/notification.model';
 
 export class NotificationService {
+  // Helper method to get all admin users
+  private async getAdminUsers(): Promise<string[]> {
+    try {
+      const query = `
+        SELECT id FROM users
+        WHERE role = $1 AND is_active = true
+      `;
+
+      const result = await pool.query(query, [UserRole.ADMIN]);
+      return result.rows.map(row => row.id);
+    } catch (error) {
+      console.error('Error getting admin users:', error);
+      return [];
+    }
+  }
+
+  // Create notification for all admin users
+  async createNotificationForAdmins(notificationData: Omit<CreateNotificationDto, 'userId'>): Promise<NotificationResponse> {
+    try {
+      const adminIds = await this.getAdminUsers();
+
+      if (adminIds.length === 0) {
+        console.warn('No admin users found to send notifications to');
+        return {
+          success: false,
+          error: {
+            message: 'No admin users available',
+            code: 'NO_ADMINS'
+          }
+        };
+      }
+
+      const notifications: Notification[] = [];
+
+      for (const adminId of adminIds) {
+        const result = await this.createNotification({
+          ...notificationData,
+          userId: adminId
+        });
+
+        if (result.success && result.data) {
+          notifications.push(result.data);
+        }
+      }
+
+      // Send real-time notifications via Socket.IO if available
+      try {
+        const { socketService } = await import('../../shared/services/socket.service');
+        for (const adminId of adminIds) {
+          socketService.sendNotification(adminId, {
+            type: notificationData.type,
+            data: {
+              title: notificationData.title,
+              message: notificationData.message,
+              priority: notificationData.priority || 'medium',
+              metadata: notificationData.metadata
+            }
+          });
+        }
+        console.log(`📡 Real-time notifications sent to ${adminIds.length} admin users`);
+      } catch (socketError) {
+        console.warn('Socket.IO not available for real-time notifications:', socketError);
+      }
+
+      return {
+        success: true,
+        data: notifications,
+        error: undefined
+      };
+    } catch (error: any) {
+      console.error('Error creating notifications for admins:', error);
+      return {
+        success: false,
+        error: {
+          message: error.message || 'Failed to create admin notifications',
+          code: error.code
+        }
+      };
+    }
+  }
+
   // Create a new notification
   async createNotification(data: CreateNotificationDto): Promise<SingleNotificationResponse> {
     try {

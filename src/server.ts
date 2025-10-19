@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+// WebSocket configuration fix applied
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
@@ -11,7 +11,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
 import { initDatabase } from './modules/core/config/database';
-// import { SocketService } from './modules/messaging/services/socket.service';
+import { socketService } from './modules/shared/services/socket.service';
 import { errorHandler, notFoundHandler } from './modules/core/middleware/errorHandler';
 import { validateEnv } from './modules/core/config/envValidation';
 import { S3Service } from './modules/core/services/s3.service';
@@ -38,9 +38,10 @@ const getAllowedOrigins = () => {
   // Default origins for development and production
   return [
     'http://localhost:3000',
-    'https://group-seven-beeovbt6y-aaashir128s-projects.vercel.app',
-    // Allow all Vercel preview domains
-    /\.vercel\.app$/
+    // Allow all Vercel domains (production and preview)
+    /\.vercel\.app$/,
+    // Add Railway app URL if available
+    ...(process.env.RAILWAY_PUBLIC_DOMAIN ? [process.env.RAILWAY_PUBLIC_DOMAIN] : [])
   ];
 };
 
@@ -50,17 +51,12 @@ validateEnv();
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Initialize Socket.IO
+// Initialize HTTP Server
 const httpServer = createServer(app);
-const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: getAllowedOrigins(),
-    credentials: true
-  }
-});
 
-// Temporarily disable Socket Service
-// const socketService = new SocketService(io);
+// Initialize Socket.IO service (this creates the Socket.IO server)
+socketService.initialize(httpServer);
+console.log('✅ Socket.IO initialized for real-time notifications');
 
 // Temporarily disable rate limiting for development
 const limiter = rateLimit({
@@ -163,7 +159,7 @@ const startServer = async () => {
 
     await initDatabase();
     
-    // console.log('✅ Socket.IO initialized for real-time messaging');
+    console.log('✅ Socket.IO service initialized and ready');
     
     httpServer.listen(PORT, () => {
       console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);

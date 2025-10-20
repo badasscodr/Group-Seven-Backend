@@ -73,7 +73,6 @@ export class NotificationService {
             }
           });
         }
-        console.log(`📡 Real-time notifications sent to ${adminIds.length} admin users`);
       } catch (socketError) {
         console.warn('Socket.IO not available for real-time notifications:', socketError);
       }

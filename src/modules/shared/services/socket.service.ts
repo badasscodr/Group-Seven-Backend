@@ -42,8 +42,6 @@ class SocketService {
     this.io.use(this.authenticateSocket.bind(this));
 
     this.io.on('connection', this.handleConnection.bind(this));
-
-    console.log('Socket.IO server initialized');
   }
 
   private async authenticateSocket(socket: any, next: any): Promise<void> {
@@ -75,8 +73,7 @@ class SocketService {
     const userId = socket.user.id;
     const socketId = socket.id;
 
-    console.log(`User ${userId} connected with socket ${socketId}`);
-
+    
     // Track user connection
     if (!this.connectedUsers.has(userId)) {
       this.connectedUsers.set(userId, new Set());
@@ -195,8 +192,7 @@ class SocketService {
     const userId = socket.user.id;
     const socketId = socket.id;
 
-    console.log(`User ${userId} disconnected (socket ${socketId})`);
-
+    
     // Remove socket tracking
     const userSockets = this.connectedUsers.get(userId);
     if (userSockets) {

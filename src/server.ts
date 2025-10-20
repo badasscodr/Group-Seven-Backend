@@ -56,7 +56,6 @@ const httpServer = createServer(app);
 
 // Initialize Socket.IO service (this creates the Socket.IO server)
 socketService.initialize(httpServer);
-console.log('✅ Socket.IO initialized for real-time notifications');
 
 // Temporarily disable rate limiting for development
 const limiter = rateLimit({
@@ -160,13 +159,10 @@ const startServer = async () => {
 
     await initDatabase();
     
-    console.log('✅ Socket.IO service initialized and ready');
-    
     httpServer.listen(PORT, () => {
       console.log(`🚀 Group Seven Initiatives API server running on port ${PORT}`);
-      console.log(`📚 API Documentation available at: http://localhost:${PORT}/api-docs`);
-      console.log(`🏥 Health check available at: http://localhost:${PORT}/health`);
-      console.log(`🔌 WebSocket available at: ws://localhost:${PORT}`);
+      console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
